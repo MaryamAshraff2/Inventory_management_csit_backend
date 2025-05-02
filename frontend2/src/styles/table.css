@@ -1,0 +1,14 @@
+/* Location Dropdown Styles */
+.location-dropdown {
+    transition: all 0.3s ease;
+  }
+  
+  .location-list {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+  
+  .location-list.show {
+    max-height: 500px;
+  }
