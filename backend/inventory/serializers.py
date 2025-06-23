@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import  User, Department, Category, Item, Procurement, Location, StockMovement, SendingStockRequest
+from .models import  User, Department, Category, Item, Procurement, Location, StockMovement, SendingStockRequest, DiscardedItem
 
 class LocationSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source='department.name', read_only=True)
@@ -181,3 +181,18 @@ class SendingStockRequestSerializer(serializers.ModelSerializer):
         #     'id', 'item', 'item_id', 'quantity', 'requested_by', 'status', 'created_at'
         # ]
         # read_only_fields = ['id', 'item', 'requested_by', 'status', 'created_at']
+
+class DiscardedItemSerializer(serializers.ModelSerializer):
+    item = ItemSerializer(read_only=True)
+    item_id = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all(), source='item', write_only=True)
+    discarded_by = UserSerializer(read_only=True)
+    discarded_by_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='discarded_by', write_only=True, required=False, allow_null=True)
+    date = serializers.DateField(read_only=True)
+
+    class Meta:
+        model = DiscardedItem
+        fields = [
+            'id', 'item', 'item_id', 'quantity', 'date', 'reason', 
+            'discarded_by', 'discarded_by_id', 'notes'
+        ]
+        read_only_fields = ['id', 'date']

@@ -85,50 +85,6 @@ class StockMovement(models.Model):
         return f"{self.quantity} x {self.item.name} from {self.from_location.name} to {self.to_location.name} on {self.movement_date} (Received by: {self.received_by.name})" 
 
 
-# # one table for stock request
-# class StockRequest(models.Model):
-#     STATUS_CHOICES = [
-#         ("Pending", "Pending"),
-#         ("Approved", "Approved"),
-#         ("Rejected", "Rejected"),
-#     ]
-#     item = models.ForeignKey(Item, on_delete=models.PROTECT)
-#     quantity = models.PositiveIntegerField()
-#     requested_by = models.ForeignKey(
-#         User, 
-#         on_delete=models.CASCADE,
-#         related_name="stock_requests"
-#     )
-#     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="Pending")
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-    
-#     class Meta:
-#         ordering = ['-created_at']
-
-
-# # two tables for stock request
-# class StockRequest(models.Model):
-#     STATUS_CHOICES = [
-#         ("Pending", "Pending"),
-#         ("Approved", "Approved"),
-#         ("Rejected", "Rejected"),
-#     ]
-#     item = models.CharField(max_length=100)
-#     # category = models.CharField(max_length=10)
-#     quantity = models.PositiveIntegerField()
-#     requester_name = models.CharField(max_length=100)
-#     requested_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True)
-#     date_requested = models.DateField()
-#     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="Pending")
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-
-#     def __str__(self):
-#         return f"{self.item} request by {self.requester_name}"
-
-
-# # userview models
 class SendingStockRequest(models.Model):
     STATUS_CHOICES = [
         ("Pending", "Pending"),
@@ -144,3 +100,27 @@ class SendingStockRequest(models.Model):
     def __str__(self):
         return f"{self.quantity} x {self.item.name} requested by {self.requested_by} ({self.status})"
 
+class DiscardedItem(models.Model):
+    REASON_CHOICES = [
+        ('Damaged', 'Damaged'),
+        ('Obsolete', 'Obsolete'),
+        ('Expired', 'Expired'),
+        ('Other', 'Other'),
+    ]
+    
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='discarded_items')
+    quantity = models.PositiveIntegerField()
+    date = models.DateField(auto_now_add=True)
+    reason = models.CharField(max_length=20, choices=REASON_CHOICES)
+    discarded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='discarded_items')
+    notes = models.TextField(blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.quantity} x {self.item.name} discarded on {self.date} ({self.reason})"
+    
+    def save(self, *args, **kwargs):
+        # Update the item's quantity when it's discarded
+        if not self.pk:  # Only for new instances
+            self.item.quantity -= self.quantity
+            self.item.save()
+        super().save(*args, **kwargs)

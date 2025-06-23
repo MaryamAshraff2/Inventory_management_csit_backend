@@ -1,66 +1,53 @@
 import { useState, useEffect } from "react";
 import { FaTimes } from "react-icons/fa";
+import { itemsAPI, usersAPI } from "../services/api";
 
 const AddDiscardedItemForm = ({ onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
-    procurement: "",
     item: "",
     quantity: "",
-    date: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }),
     reason: "",
     notes: "",
     discardedBy: ""
   });
 
-  // Mock procurement data - replace with actual API call
-  const [procurements, setProcurements] = useState([
-    {
-      id: "PO-2023-001",
-      supplier: "Tech Solutions Inc.",
-      items: ["Laptop", "Monitor", "Keyboard"]
-    },
-    {
-      id: "PO-2023-002",
-      supplier: "Office Supplies Ltd.",
-      items: ["Mouse", "Notebook", "Printer"]
-    },
-    {
-      id: "PO-2023-003",
-      supplier: "Furniture World",
-      items: ["Chair", "Desk"]
-    }
-  ]);
-
-  // State for filtered items based on selected procurement
-  const [filteredItems, setFilteredItems] = useState([]);
+  const [items, setItems] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const discardReasons = [
-    "Dumped",
-    "Obsolete",
-    "Expired",
     "Damaged",
-    "Lost",
+    "Obsolete", 
+    "Expired",
     "Other"
   ];
 
-  const staffMembers = [
-    "John Smith",
-    "Emily Davis",
-    "Sarah Johnson",
-    "Michael Brown",
-    "Robert Wilson"
-  ];
-
-  // Update filtered items when procurement changes
+  // Fetch items and users on component mount
   useEffect(() => {
-    if (formData.procurement) {
-      const selectedProcurement = procurements.find(p => p.id === formData.procurement);
-      setFilteredItems(selectedProcurement ? selectedProcurement.items : []);
-      setFormData(prev => ({ ...prev, item: "" })); // Reset item selection
-    } else {
-      setFilteredItems([]);
-    }
-  }, [formData.procurement, procurements]);
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch items and users in parallel
+        const [itemsData, usersData] = await Promise.all([
+          itemsAPI.getAll(),
+          usersAPI.getAll()
+        ]);
+        
+        setItems(itemsData);
+        setUsers(usersData);
+      } catch (err) {
+        console.error('Failed to fetch form data:', err);
+        setError('Failed to load form data. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -72,8 +59,51 @@ const AddDiscardedItemForm = ({ onClose, onSubmit }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Validate form
+    if (!formData.item || !formData.quantity || !formData.reason || !formData.discardedBy) {
+      alert('Please fill in all required fields.');
+      return;
+    }
+
+    if (parseInt(formData.quantity) <= 0) {
+      alert('Quantity must be greater than 0.');
+      return;
+    }
+
     onSubmit(formData);
   };
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p>Loading form data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+          <div className="text-center">
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -95,26 +125,7 @@ const AddDiscardedItemForm = ({ onClose, onSubmit }) => {
           
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
-              {/* Procurement Dropdown */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Procurement *</label>
-                <select
-                  name="procurement"
-                  value={formData.procurement}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="">Select a procurement</option>
-                  {procurements.map((procurement, index) => (
-                    <option key={index} value={procurement.id}>
-                      {procurement.id} - {procurement.supplier}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              {/* Items Dropdown (dynamically filtered) */}
+              {/* Items Dropdown */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Item *</label>
                 <select
@@ -123,11 +134,12 @@ const AddDiscardedItemForm = ({ onClose, onSubmit }) => {
                   onChange={handleChange}
                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
-                  disabled={!formData.procurement}
                 >
-                  <option value="">{formData.procurement ? "Select an item" : "First select a procurement"}</option>
-                  {filteredItems.map((item, index) => (
-                    <option key={index} value={item}>{item}</option>
+                  <option value="">Select an item</option>
+                  {items.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} - {item.category?.name} (Qty: {item.quantity})
+                    </option>
                   ))}
                 </select>
               </div>
@@ -143,18 +155,6 @@ const AddDiscardedItemForm = ({ onClose, onSubmit }) => {
                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                   min="1"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Discard Date *</label>
-                <input
-                  type="text"
-                  name="date"
-                  value={formData.date}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
                 />
               </div>
               
@@ -184,8 +184,10 @@ const AddDiscardedItemForm = ({ onClose, onSubmit }) => {
                   required
                 >
                   <option value="">Select staff member</option>
-                  {staffMembers.map((staff, index) => (
-                    <option key={index} value={staff}>{staff}</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} - {user.department?.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -217,8 +219,8 @@ const AddDiscardedItemForm = ({ onClose, onSubmit }) => {
             <button
               type="submit"
               onClick={handleSubmit}
-              disabled={!formData.procurement || !formData.item}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              disabled={!formData.item || !formData.quantity || !formData.reason || !formData.discardedBy}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Record Discard
             </button>
