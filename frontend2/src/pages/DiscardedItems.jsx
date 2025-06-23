@@ -88,8 +88,8 @@ const DiscardedItems = () => {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h2 className="text-xl font-bold mb-2">Discarded Items</h2>
-                <h3 className="text-lg font-semibold text-gray-600">
+                
+              <h3 className="text-lg font-semibold">
                   Manage and track discarded inventory
                 </h3>
               </div>

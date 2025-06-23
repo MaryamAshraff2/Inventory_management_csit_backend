@@ -150,8 +150,8 @@ const StockRequestsManagement = () => {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 w-full">
             {/* Title and subtitle */}
             <div className="px-4 sm:px-6 pt-6 pb-2">
-              <h1 className="text-2xl font-bold text-gray-800">Stock Requests Management</h1>
-              <p className="text-gray-500 mt-1">Manage and respond to stock requests ({requests.filter(r => r.status === 'Pending').length} pending)</p>
+              <h1 className="text-lg font-semibold">Manage and respond to stock requests ({requests.filter(r => r.status === 'Pending').length} pending)</h1>
+              
             </div>
             {/* Search and filter */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-6 py-4 gap-4">
