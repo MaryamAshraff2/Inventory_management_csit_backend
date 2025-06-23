@@ -13,19 +13,20 @@ const Categories = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch categories from API
+  // Move fetchCategories outside useEffect
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get("http://localhost:8000/inventory/categories/");
+      setCategories(response.data); // Assumes response.data is an array of categories
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get("http://localhost:8000/inventory/categories/");
-        setCategories(response.data); // Assumes response.data is an array of categories
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchCategories();
   }, []);
   
@@ -203,7 +204,7 @@ const Categories = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                              {category.itemCount}
+                              {category.item_count}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -344,7 +345,7 @@ const Categories = () => {
                           Item Count
                         </label>
                         <div className="w-full px-3 py-2 bg-gray-100 rounded-md">
-                          {editingCategory.itemCount}
+                          {editingCategory.item_count}
                         </div>
                       </div>
                     )}

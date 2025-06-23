@@ -7,7 +7,7 @@ class User(models.Model):
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20)
-    department = models.CharField(max_length=100)
+    department = models.ForeignKey('Department', on_delete=models.CASCADE, related_name='users')
 
     def __str__(self):
         return self.name
@@ -17,89 +17,56 @@ class Department(models.Model):
     name = models.CharField(max_length=100)
     email = models.EmailField()
     user_count = models.IntegerField(default=0)
-    locations = models.JSONField(default=list)  # For PostgreSQL JSON field
-    
-    def __str__(self):
-        return self.name
-    
-
-class Item(models.Model):
-    name = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
-    quantity = models.PositiveIntegerField(default=0)
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2) #check
-    category = models.ForeignKey(
-        'Category', on_delete=models.CASCADE, related_name='items'
-    )
-
     def __str__(self):
         return self.name
     
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True)
-    itemCount = models.PositiveIntegerField(default=0)
+    item_count = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return self.name
 
-    def update_item_count(self):
-        # Sum all quantities of items in this category
-        total = self.items.aggregate(total_quantity=Sum('quantity'))['total_quantity']
-        self.itemCount = total if total is not None else 0
-        self.save()
 
-
-# class Procurement(models.Model):
-#     item = models.ForeignKey(
-#         'Item', on_delete=models.CASCADE, related_name='procurements' 
-#     )
-#     order_number = models.CharField(max_length=100, unique=True) #procurement ID
-#     proc_type = models.CharField(max_length=255) #changed from type 
-#     date_procured = models.DateField()
-#     quantity = models.PositiveIntegerField()
-#     unit_cost = models.DecimalField(max_digits=10, decimal_places=2)
-#     total_cost = models.DecimalField(max_digits=12, decimal_places=2)
-#     supplier = models.CharField(max_length=255)
-#     notes = models.TextField(blank=True, null=True)
-#     document_file = models.FileField(upload_to="procurement_documents/", blank=True, null=True)
-#     document_type = models.CharField(max_length=50)
-
-
-#     def save(self, *args, **kwargs):
-#         # Automatically calculate total cost
-#         self.total_cost = self.quantity * self.unit_cost
-#         super().save(*args, **kwargs)
-
-#     def __str__(self):
-#         return f"{self.item.name} procured on {self.date_procured}"
-
-
-class ProcurementOrder(models.Model):
-    order_number = models.CharField(max_length=100, primary_key=True)  # ✅ Now primary key
-    supplier = models.CharField(max_length=255)
-    date_procured = models.DateField()
-    notes = models.TextField(blank=True, null=True)
-    document_file = models.FileField(upload_to="procurement_documents/", blank=True, null=True)
-    document_type = models.CharField(max_length=50)
-    added_by = models.CharField(max_length=255)
+class Item(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='items')
+    quantity = models.PositiveIntegerField(default=0)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
-        return f"{self.order_number} - {self.supplier}"
+        return self.name
 
 
-class ProcurementItem(models.Model):
-    order = models.ForeignKey(ProcurementOrder, on_delete=models.CASCADE, related_name='items', to_field='order_number')
-    item = models.ForeignKey('Item', on_delete=models.CASCADE)
-    proc_type = models.CharField(max_length=255)
+class Procurement(models.Model):
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='procurements')
     quantity = models.PositiveIntegerField()
-    unit_cost = models.DecimalField(max_digits=10, decimal_places=2)
-    total_cost = models.DecimalField(max_digits=12, decimal_places=2)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    order_number = models.CharField(max_length=20, unique=True, blank=True)
+    supplier = models.CharField(max_length=255, null=True, blank=True)
+    document = models.FileField(upload_to='procurement_documents/', blank=True, null=True)
+    order_date = models.DateField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
-        self.total_cost = self.quantity * self.unit_cost
+        if not self.order_number:
+            last = Procurement.objects.order_by('-id').first()
+            next_id = (last.id + 1) if last else 1
+            self.order_number = f'PO-{next_id:04d}'
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.item.name} x {self.quantity} for {self.order.order_number}"
+        return f'{self.order_number} - {self.quantity} of {self.item.name}'
+
+
+class Location(models.Model):
+    name = models.CharField(max_length=100)
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='locations', null=True, blank=True)
+    room_number = models.CharField(max_length=100,default='0')
+    description = models.TextField(blank=True)
+   
+    # Add more fields as needed (e.g., address, code, etc.)
+
+    def __str__(self):
+        return self.name 

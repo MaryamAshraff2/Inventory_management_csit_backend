@@ -3,14 +3,13 @@ import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
-import { categories, getCategoryName } from "../constants/categories";
 
 const Items = () => {
   const [items, setItems] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterBy, setFilterBy] = useState("name");
-  const [categoryFilter, setCategoryFilter] = useState("all");
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -19,28 +18,35 @@ const Items = () => {
       try {
         setLoading(true);
         const response = await axios.get("http://localhost:8000/inventory/items/"); 
-        setItems(response.data); // assuming response.data is an array of items
-        
+        setItems(response.data);
       } catch (error) {
         console.error("Error fetching items:", error);
       } finally {
         setLoading(false);
       }
     };
-  
     fetchItems();
   }, []);
-  
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await axios.get("http://localhost:8000/inventory/categories/");
+        setCategories(response.data);
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const filteredItems = items.filter((item) => {
-    const matchesSearch = filterBy === "name" 
-      ? item.name.toLowerCase().includes(searchTerm.toLowerCase())
-      : item.description.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = categoryFilter === "all" 
-      || item.categoryId.toString() === categoryFilter;
-    
-    return matchesSearch && matchesCategory;
+    if (filterBy === "name") {
+      return item.name.toLowerCase().includes(searchTerm.toLowerCase());
+    } else if (filterBy === "category") {
+      return (item.category?.name || "").toLowerCase().includes(searchTerm.toLowerCase());
+    }
+    return true;
   });
 
   const totalPages = Math.ceil(filteredItems.length / rowsPerPage);
@@ -48,7 +54,6 @@ const Items = () => {
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
-
 
   return (
     <>
@@ -63,78 +68,53 @@ const Items = () => {
               </div>
             </div>
 
-            <div className="flex flex-col gap-4 mb-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <div className="flex border rounded-md overflow-hidden">
-                    <select
-                      value={filterBy}
-                      onChange={(e) => {
-                        setFilterBy(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      className="bg-gray-100 px-3 py-2 text-sm focus:outline-none"
-                    >
-                      <option value="name">By Name</option>
-                      <option value="description">By Description</option>
-                    </select>
-                    <input
-                      type="text"
-                      placeholder={
-                        filterBy === "name" 
-                          ? "Search items by name..." 
-                          : "Search items by description..."
-                      }
-                      value={searchTerm}
-                      onChange={(e) => {
-                        setSearchTerm(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      className="flex-1 px-3 py-2 text-sm focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div>
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+              <div className="flex-1">
+                <div className="flex border rounded-md overflow-hidden">
                   <select
-                    value={categoryFilter}
+                    value={filterBy}
                     onChange={(e) => {
-                      setCategoryFilter(e.target.value);
+                      setFilterBy(e.target.value);
+                      setSearchTerm("");
                       setCurrentPage(1);
                     }}
-                    className="w-full border rounded px-3 py-2 text-sm"
+                    className="bg-gray-100 px-3 py-2 text-sm focus:outline-none border-0"
                   >
-                    <option value="all">All Categories</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
+                    <option value="name">By Name</option>
+                    <option value="category">By Category</option>
                   </select>
+                  <input
+                    type="text"
+                    placeholder={
+                      filterBy === "name"
+                        ? "Search items..."
+                        : "Search categories..."
+                    }
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="flex-1 px-3 py-2 text-sm focus:outline-none border-0 bg-transparent"
+                  />
                 </div>
               </div>
-
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-gray-600">
-                  {filteredItems.length} items found
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Show:</span>
-                  <select
-                    value={rowsPerPage}
-                    onChange={(e) => {
-                      setRowsPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="border rounded px-3 py-1 text-sm"
-                  >
-                    {[5, 10, 20, 50].map((num) => (
-                      <option key={num} value={num}>
-                        {num}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Show:</span>
+                <select
+                  value={rowsPerPage}
+                  onChange={(e) => {
+                    setRowsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="border rounded px-3 py-1 text-sm"
+                >
+                  {[5, 10, 20, 50].map((num) => (
+                    <option key={num} value={num}>
+                      {num}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -147,7 +127,6 @@ const Items = () => {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
@@ -160,17 +139,16 @@ const Items = () => {
                           <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
                             {item.name}
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-500">
-                            {item.description}
-                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.category_name}
+                            {item.category?.name || '—'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.quantity}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${item.unitPrice?.toFixed(2) || '0.00'}
+                            {item.unit_price !== undefined && item.unit_price !== null
+                              ? Number(item.unit_price).toFixed(2)
+                              : '0.00'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <button

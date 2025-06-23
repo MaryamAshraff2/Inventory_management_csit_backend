@@ -1,946 +1,84 @@
-// // import { useState } from "react";
-// // import { FaTimes, FaPlus, FaMinus } from "react-icons/fa";
+import React, { useState, useEffect } from "react";
+import axios from 'axios';
 
-// // const AddProcurementForm = ({ onClose, onSubmit }) => {
-// //   const [currentStep, setCurrentStep] = useState(1);
-// //   const [items, setItems] = useState([
-// //     { itemId: "", itemName: "", category: "1", quantity: "", unitPrice: "" }
-// //   ]);
-// //   const [formData, setFormData] = useState({
-// //     procurementType: "",
-// //     supplier: "",
-// //     procurementDate: "",
-// //     notes: "",
-// //     documentType: "",
-// //     documentFile: null //check later
-// //   });
-
-// //   // Inventory items with procurement type included
-// //   const inventoryItems = [
-// //     { id: 1, name: "New Laptop", category: "1", procurementType: "Purchase" },
-// //     { id: 2, name: "Printer", category: "1", procurementType: "Purchase" },
-// //     { id: 3, name: "Office Desk", category: "3", procurementType: "Purchase" },
-// //     { id: 4, name: "Used Computer", category: "2", procurementType: "Donation" },
-// //     { id: 5, name: "Old Furniture", category: "3", procurementType: "Donation" },
-// //     { id: 6, name: "Department Chair", category: "3", procurementType: "Transfer" },
-// //     { id: 7, name: "Shared Equipment", category: "1", procurementType: "Transfer" }
-// //   ];
-
-// //   // Filter items based on selected procurement type
-// //   const getFilteredItems = () => {
-// //     if (!formData.procurementType) return [];
-// //     return inventoryItems.filter(item => item.procurementType === formData.procurementType);
-// //   };
-
-// //   const handleChange = (e) => {
-// //     const { name, value } = e.target;
-// //     setFormData(prev => ({ ...prev, [name]: value }));
-    
-// //     // Reset items when procurement type changes
-// //     if (name === "procurementType") {
-// //       setItems([{ itemId: "", itemName: "", category: "1", quantity: "", unitPrice: "" }]);
-// //     }
-// //   };
-
-// //   const handleItemChange = (index, e) => {
-// //     const { name, value } = e.target;
-// //     const newItems = [...items];
-    
-// //     if (name === "itemId") {
-// //       const selectedItem = inventoryItems.find(item => item.id.toString() === value);
-// //       newItems[index] = {
-// //         ...newItems[index],
-// //         itemId: value,
-// //         itemName: selectedItem ? selectedItem.name : "",
-// //         category: selectedItem ? selectedItem.category : "1"
-// //       };
-// //     } else {
-// //       newItems[index] = { ...newItems[index], [name]: value };
-// //     }
-    
-// //     setItems(newItems);
-// //   };
-
-// //   const addItem = () => {
-// //     setItems([...items, { itemId: "", itemName: "", category: "1", quantity: "", unitPrice: "" }]);
-// //   };
-
-// //   const removeItem = (index) => {
-// //     if (items.length > 1) {
-// //       const newItems = [...items];
-// //       newItems.splice(index, 1);
-// //       setItems(newItems);
-// //     }
-// //   };
-
-// //   const handleFileChange = (e) => {
-// //     setFormData(prev => ({ ...prev, documentFile: e.target.files[0] }));
-// //   };
-
-// //   const handleSubmit = (e) => {
-// //     e.preventDefault();
-    
-// //     // Format data to match procurement table structure
-// //     const formattedItems = items.map(item => ({
-// //       name: item.itemName || inventoryItems.find(i => i.id.toString() === item.itemId)?.name || "Custom Item",
-// //       quantity: parseInt(item.quantity),
-// //       unitPrice: item.unitPrice.includes('$') ? item.unitPrice : `$${item.unitPrice}`,
-// //       total: `$${(parseInt(item.quantity) * parseFloat(item.unitPrice || 0)).toFixed(2)}`,
-// //       type: "Purchase" // Default type as shown in your table
-// //     }));
-
-// //     const documentData = formData.documentFile ? {
-// //       type: formData.documentFile.name.split('.').pop(),
-// //       name: formData.documentFile.name,
-// //       url: URL.createObjectURL(formData.documentFile)
-// //     } : null;
-
-// //     const submissionData = {
-// //       orderNumber: `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`, // Auto-generate PO number
-// //       items: formattedItems,
-// //       supplier: formData.supplier,
-// //       date: new Date(formData.procurementDate).toLocaleDateString('en-US', { 
-// //         year: 'numeric', 
-// //         month: 'short', 
-// //         day: 'numeric' 
-// //       }),
-// //       documentType: formData.documentType || "Purchase Order",
-// //       addedBy: "Current User", // This would be dynamic in a real app
-// //       document: documentData,
-// //       notes: formData.notes
-// //     };
-
-// //     onSubmit(submissionData);
-// //   };
-
-// //   const nextStep = () => setCurrentStep(currentStep + 1);
-// //   const prevStep = () => setCurrentStep(currentStep - 1);
-
-// //   return (
-// //     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
-// //       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-// //         <div className="p-6 overflow-y-auto flex-1">
-// //           <div className="flex justify-between items-start mb-4">
-// //             <h3 className="text-xl font-semibold">Add New Procurement</h3>
-// //             <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-// //               <FaTimes />
-// //             </button>
-// //           </div>
-          
-// //           <p className="text-gray-600 mb-6">Add a new procurement to your inventory</p>
-          
-// //           <div className="flex border-b mb-6">
-// //             <button
-// //               className={`px-4 py-2 font-medium ${currentStep === 1 ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-// //               onClick={() => setCurrentStep(1)}
-// //             >
-// //               Basic Info
-// //             </button>
-// //             <button
-// //               className={`px-4 py-2 font-medium ${currentStep === 2 ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-// //               onClick={() => setCurrentStep(2)}
-// //             >
-// //               Additional Details
-// //             </button>
-// //             <button
-// //               className={`px-4 py-2 font-medium ${currentStep === 3 ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-// //               onClick={() => setCurrentStep(3)}
-// //             >
-// //               Documentation
-// //             </button>
-// //           </div>
-          
-// //           <form onSubmit={handleSubmit}>
-// //             {currentStep === 1 && (
-// //               <div className="space-y-4" style={{ minHeight: '400px' }}>
-// //                 <div>
-// //                   <label className="block text-sm font-medium text-gray-700 mb-1">Procurement Type *</label>
-// //                   <select
-// //                     name="procurementType"
-// //                     value={formData.procurementType}
-// //                     onChange={handleChange}
-// //                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-// //                     required
-// //                   >
-// //                     <option value="">Select procurement type</option>
-// //                     <option value="Purchase">Purchase</option>
-// //                     <option value="Donation">Donation</option>
-// //                     <option value="Transfer">Transfer</option>
-// //                   </select>
-// //                 </div>
-
-// //                 {formData.procurementType && (
-// //                   <div className="border-t pt-4">
-// //                     <div className="flex justify-between items-center mb-2">
-// //                       <h4 className="font-medium">Items</h4>
-// //                       <button
-// //                         type="button"
-// //                         onClick={addItem}
-// //                         className="flex items-center text-sm text-blue-600 hover:text-blue-800"
-// //                       >
-// //                         <FaPlus className="mr-1" /> Add Item
-// //                       </button>
-// //                     </div>
-                    
-// //                     {items.map((item, index) => (
-// //                       <div key={index} className="mb-4 p-3 border rounded-lg bg-gray-50">
-// //                         <div className="flex justify-between items-center mb-2">
-// //                           <span className="text-sm font-medium">Item #{index + 1}</span>
-// //                           {items.length > 1 && (
-// //                             <button
-// //                               type="button"
-// //                               onClick={() => removeItem(index)}
-// //                               className="text-red-500 hover:text-red-700 text-sm"
-// //                             >
-// //                               <FaMinus />
-// //                             </button>
-// //                           )}
-// //                         </div>
-                        
-// //                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-// //                           <div>
-// //                             <label className="block text-xs font-medium text-gray-600 mb-1">Item *</label>
-// //                             <select
-// //                               name="itemId"
-// //                               value={item.itemId}
-// //                               onChange={(e) => handleItemChange(index, e)}
-// //                               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-// //                               required
-// //                             >
-// //                               <option value="">Select an item</option>
-// //                               {getFilteredItems().map((invItem) => (
-// //                                 <option key={invItem.id} value={invItem.id}>
-// //                                   {invItem.name}
-// //                                 </option>
-// //                               ))}
-// //                               <option value="new">+ Add New Item</option>
-// //                             </select>
-// //                           </div>
-
-// //                           {item.itemId === "new" && (
-// //                             <>
-// //                               <div>
-// //                                 <label className="block text-xs font-medium text-gray-600 mb-1">Item Name *</label>
-// //                                 <input
-// //                                   type="text"
-// //                                   name="itemName"
-// //                                   value={item.itemName}
-// //                                   onChange={(e) => handleItemChange(index, e)}
-// //                                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-// //                                   required
-// //                                 />
-// //                               </div>
-                              
-// //                               <div>
-// //                                 <label className="block text-xs font-medium text-gray-600 mb-1">Category *</label>
-// //                                 <select
-// //                                   name="category"
-// //                                   value={item.category}
-// //                                   onChange={(e) => handleItemChange(index, e)}
-// //                                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-// //                                   required
-// //                                 >
-// //                                   <option value="1">Furniture and Fixture</option>
-// //                                   <option value="2">Consumable</option>
-// //                                   <option value="3">Deadstock</option>
-// //                                 </select>
-// //                               </div>
-// //                             </>
-// //                           )}
-                          
-// //                           <div>
-// //                             <label className="block text-xs font-medium text-gray-600 mb-1">Quantity *</label>
-// //                             <input
-// //                               type="number"
-// //                               name="quantity"
-// //                               value={item.quantity}
-// //                               onChange={(e) => handleItemChange(index, e)}
-// //                               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-// //                               required
-// //                               min="1"
-// //                             />
-// //                           </div>
-                          
-// //                           <div>
-// //                             <label className="block text-xs font-medium text-gray-600 mb-1">Unit Price *</label>
-// //                             <input
-// //                               type="number"
-// //                               name="unitPrice"
-// //                               value={item.unitPrice}
-// //                               onChange={(e) => handleItemChange(index, e)}
-// //                               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-// //                               required
-// //                               min="0"
-// //                               step="0.01"
-// //                             />
-// //                           </div>
-// //                         </div>
-// //                       </div>
-// //                     ))}
-// //                   </div>
-// //                 )}
-// //               </div>
-// //             )}
-            
-// //             {currentStep === 2 && (
-// //               <div className="space-y-4" style={{ minHeight: '400px' }}>
-// //                 <div>
-// //                   <label className="block text-sm font-medium text-gray-700 mb-1">Supplier / Source *</label>
-// //                   <input
-// //                     type="text"
-// //                     name="supplier"
-// //                     value={formData.supplier}
-// //                     onChange={handleChange}
-// //                     placeholder="Enter supplier or source"
-// //                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-// //                     required
-// //                   />
-// //                 </div>
-                
-// //                 <div>
-// //                   <label className="block text-sm font-medium text-gray-700 mb-1">Procurement Date *</label>
-// //                   <input
-// //                     type="date"
-// //                     name="procurementDate"
-// //                     value={formData.procurementDate}
-// //                     onChange={handleChange}
-// //                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-// //                     required
-// //                   />
-// //                 </div>
-                
-// //                 <div>
-// //                   <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-// //                   <textarea
-// //                     name="notes"
-// //                     value={formData.notes}
-// //                     onChange={handleChange}
-// //                     placeholder="Enter additional notes about this procurement"
-// //                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-// //                     rows="3"
-// //                   />
-// //                 </div>
-                
-// //                 <div className="flex justify-between mt-6">
-// //                   <button
-// //                     type="button"
-// //                     onClick={prevStep}
-// //                     className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-// //                   >
-// //                     Back
-// //                   </button>
-// //                   <button
-// //                     type="button"
-// //                     onClick={nextStep}
-// //                     disabled={!formData.supplier || !formData.procurementDate}
-// //                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-// //                   >
-// //                     Next
-// //                   </button>
-// //                 </div>
-// //               </div>
-// //             )}
-            
-// //             {currentStep === 3 && (
-// //               <div className="space-y-4 pb-6" style={{ minHeight: '400px' }}>
-// //                 <div>
-// //                   <h3 className="text-lg font-medium mb-2">Document Type</h3>
-// //                   <select
-// //                     name="documentType"
-// //                     value={formData.documentType}
-// //                     onChange={handleChange}
-// //                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-// //                   >
-// //                     <option value="">Select document type</option>
-// //                     <option value="purchase_order">Purchase Order</option>
-// //                     <option value="donation_letter">Donation Letter</option>
-// //                     <option value="internal_memo">Internal Memo</option>
-// //                   </select>
-// //                 </div>
-                
-// //                 <div className="mt-6">
-// //                   <h3 className="text-lg font-medium mb-2">Upload Document</h3>
-// //                   <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
-// //                     <input
-// //                       type="file"
-// //                       onChange={handleFileChange}
-// //                       accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-// //                       className="hidden"
-// //                       id="documentUpload"
-// //                     />
-// //                     <label
-// //                       htmlFor="documentUpload"
-// //                       className="cursor-pointer block"
-// //                     >
-// //                       <p className="text-sm text-gray-600">Drag and drop files here or click to browse</p>
-// //                       <p className="text-xs text-gray-500 mt-1">PDF, DOC, JPG or PNG (max. 5MB)</p>
-// //                     </label>
-// //                     {formData.documentFile && (
-// //                       <p className="text-sm text-green-600 mt-2">
-// //                         {formData.documentFile.name} selected
-// //                       </p>
-// //                     )}
-// //                   </div>
-// //                 </div>
-// //               </div>
-// //             )}
-// //           </form>
-// //         </div>
-
-// //         {currentStep === 3 && (
-// //           <div className="p-4 border-t bg-white sticky bottom-0">
-// //             <div className="flex justify-between">
-// //               <button
-// //                 type="button"
-// //                 onClick={prevStep}
-// //                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-// //               >
-// //                 Back
-// //               </button>
-// //               <div className="flex gap-2">
-// //                 <button
-// //                   type="button"
-// //                   onClick={onClose}
-// //                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-// //                 >
-// //                   Cancel
-// //                 </button>
-// //                 <button
-// //                   type="submit"
-// //                   onClick={handleSubmit}
-// //                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-// //                 >
-// //                   Add Procurement
-// //                 </button>
-// //               </div>
-// //             </div>
-// //           </div>
-// //         )}
-// //       </div>
-// //     </div>
-// //   );
-// // };
-
-// // export default AddProcurementForm;
-
-// import axios from "axios";
-// import { FaTimes, FaPlus, FaMinus } from "react-icons/fa";
-// import { useState, useEffect } from "react";
-
-
-// const AddProcurementForm = ({ onClose, onSubmit }) => {
-//   const [currentStep, setCurrentStep] = useState(1);
-//   const [items, setItems] = useState([
-//     { itemId: "", itemName: "", category: "1", quantity: "", unitPrice: "" }
-//   ]);
-//   const [formData, setFormData] = useState({
-//     procurementType: "",
-//     supplier: "",
-//     procurementDate: "",
-//     notes: "",
-//     documentType: "",
-//     documentFile: null //check later
-//   });
-
-//   // Inventory items with procurement type included
-//   const [inventoryItems, setInventoryItems] = useState([]);
-  
-//   useEffect(() => {
-//     axios.get("http://localhost:8000/inventory/items/")
-//       .then(res => setInventoryItems(res.data))
-//       .catch(err => console.error("Failed to load items", err));
-//   }, []);
-
-//   // Filter items based on selected procurement type
-//   const getFilteredItems = () => {
-//     if (!formData.procurementType) return [];
-//     return inventoryItems.filter(item => item.procurementType === formData.procurementType);
-//   };
-
-//   const handleChange = (e) => {
-//     const { name, value } = e.target;
-//     setFormData(prev => ({ ...prev, [name]: value }));
-    
-//     // Reset items when procurement type changes
-//     if (name === "procurementType") {
-//       setItems([{ itemId: "", itemName: "", category: "1", quantity: "", unitPrice: "" }]);
-//     }
-//   };
-
-//   const handleItemChange = (index, e) => {
-//     const { name, value } = e.target;
-//     const newItems = [...items];
-    
-//     if (name === "itemId") {
-//       const selectedItem = inventoryItems.find(item => item.id.toString() === value);
-//       newItems[index] = {
-//         ...newItems[index],
-//         itemId: value,
-//         itemName: selectedItem ? selectedItem.name : "",
-//         category: selectedItem ? selectedItem.category : "1"
-//       };
-//     } else {
-//       newItems[index] = { ...newItems[index], [name]: value };
-//     }
-    
-//     setItems(newItems);
-//   };
-
-//   const addItem = () => {
-//     setItems([...items, { itemId: "", itemName: "", category: "1", quantity: "", unitPrice: "" }]);
-//   };
-
-//   const removeItem = (index) => {
-//     if (items.length > 1) {
-//       const newItems = [...items];
-//       newItems.splice(index, 1);
-//       setItems(newItems);
-//     }
-//   };
-
-//   const handleFileChange = (e) => {
-//     setFormData(prev => ({ ...prev, documentFile: e.target.files[0] }));
-//   };
-
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
-  
-//     // Generate order number once
-//     const generatedOrderNumber = `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-  
-//     // Format items
-//     const formattedItems = items.map(item => ({
-//       name: item.itemName || inventoryItems.find(i => i.id.toString() === item.itemId)?.name || "Custom Item",
-//       quantity: parseInt(item.quantity),
-//       unitPrice: item.unitPrice.includes('$') ? item.unitPrice : `$${item.unitPrice}`,
-//       total: `$${(parseInt(item.quantity) * parseFloat(item.unitPrice || 0)).toFixed(2)}`,
-//       type: "Purchase"
-//     }));
-  
-//     // Document metadata
-//     const documentData = formData.documentFile ? {
-//       type: formData.documentFile.name.split('.').pop(),
-//       name: formData.documentFile.name,
-//       url: URL.createObjectURL(formData.documentFile)
-//     } : null;
-  
-//     // For display/logging/UI
-//     const submissionData = {
-//       orderNumber: generatedOrderNumber,
-//       items: formattedItems,
-//       supplier: formData.supplier,
-//       date: new Date(formData.procurementDate).toLocaleDateString('en-US', { 
-//         year: 'numeric', 
-//         month: 'short', 
-//         day: 'numeric' 
-//       }),
-//       documentType: formData.documentType || "Purchase Order",
-//       addedBy: "Current User",
-//       document: documentData,
-//       notes: formData.notes
-//     };
-  
-//     // Actual backend payload
-//     const data = new FormData();
-//     data.append('order_number', generatedOrderNumber);
-//     data.append('proctype', formData.procurementType);
-//     data.append('supplier', formData.supplier);
-//     data.append('date', formData.procurementDate);
-//     data.append('document_type', formData.documentType || "Purchase Order");
-//     data.append('added_by', "Current User");
-//     data.append('notes', formData.notes);
-//     if (formData.documentFile) {
-//       data.append('document', formData.documentFile);
-//     }
-  
-//     try {
-//       const procurementRes = await axios.post(
-//         'http://localhost:8000/inventory/procurements/',
-//         data,
-//         { headers: { 'Content-Type': 'multipart/form-data' } }
-//       );
-  
-//       const procurementId = procurementRes.data.id;
-  
-//       // Send items separately
-//       const itemPromises = items.map(item => 
-//         axios.post('http://localhost:8000/inventory/procurement-items/', {
-//           procurement: procurementId,
-//           item: parseInt(item.itemId),
-//           quantity: parseInt(item.quantity),
-//           unit_price: parseFloat(item.unitPrice)
-//         })
-//       );
-  
-//       await Promise.all(itemPromises);
-//       onSubmit(); // Notify parent / reset form etc.
-//     } catch (error) {
-//       console.error("Submission failed", error);
-//     }
-  
-//     // Optional: For logging or preview
-//     onSubmit(submissionData);
-//   };  
-
-
-
-  
-//   const nextStep = () => setCurrentStep(currentStep + 1);
-//   const prevStep = () => setCurrentStep(currentStep - 1);
-
-//   return (
-//     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
-//       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-//         <div className="p-6 overflow-y-auto flex-1">
-//           <div className="flex justify-between items-start mb-4">
-//             <h3 className="text-xl font-semibold">Add New Procurement</h3>
-//             <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-//               <FaTimes />
-//             </button>
-//           </div>
-          
-//           <p className="text-gray-600 mb-6">Add a new procurement to your inventory</p>
-          
-//           <div className="flex border-b mb-6">
-//             <button
-//               className={`px-4 py-2 font-medium ${currentStep === 1 ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-//               onClick={() => setCurrentStep(1)}
-//             >
-//               Basic Info
-//             </button>
-//             <button
-//               className={`px-4 py-2 font-medium ${currentStep === 2 ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-//               onClick={() => setCurrentStep(2)}
-//             >
-//               Additional Details
-//             </button>
-//             <button
-//               className={`px-4 py-2 font-medium ${currentStep === 3 ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-//               onClick={() => setCurrentStep(3)}
-//             >
-//               Documentation
-//             </button>
-//           </div>
-          
-//           <form onSubmit={handleSubmit}>
-//             {currentStep === 1 && (
-//               <div className="space-y-4" style={{ minHeight: '400px' }}>
-//                 <div>
-//                   <label className="block text-sm font-medium text-gray-700 mb-1">Procurement Type *</label>
-//                   <select
-//                     name="procurementType"
-//                     value={formData.procurementType}
-//                     onChange={handleChange}
-//                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//                     required
-//                   >
-//                     <option value="">Select procurement type</option>
-//                     <option value="Purchase">Purchase</option>
-//                     <option value="Donation">Donation</option>
-//                     <option value="Transfer">Transfer</option>
-//                   </select>
-//                 </div>
-
-//                 {formData.procurementType && (
-//                   <div className="border-t pt-4">
-//                     <div className="flex justify-between items-center mb-2">
-//                       <h4 className="font-medium">Items</h4>
-//                       <button
-//                         type="button"
-//                         onClick={addItem}
-//                         className="flex items-center text-sm text-blue-600 hover:text-blue-800"
-//                       >
-//                         <FaPlus className="mr-1" /> Add Item
-//                       </button>
-//                     </div>
-                    
-//                     {items.map((item, index) => (
-//                       <div key={index} className="mb-4 p-3 border rounded-lg bg-gray-50">
-//                         <div className="flex justify-between items-center mb-2">
-//                           <span className="text-sm font-medium">Item #{index + 1}</span>
-//                           {items.length > 1 && (
-//                             <button
-//                               type="button"
-//                               onClick={() => removeItem(index)}
-//                               className="text-red-500 hover:text-red-700 text-sm"
-//                             >
-//                               <FaMinus />
-//                             </button>
-//                           )}
-//                         </div>
-                        
-//                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-//                           <div>
-//                             <label className="block text-xs font-medium text-gray-600 mb-1">Item *</label>
-//                             <select
-//                               name="itemId"
-//                               value={item.itemId}
-//                               onChange={(e) => handleItemChange(index, e)}
-//                               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-//                               required
-//                             >
-//                               <option value="">Select an item</option>
-//                               {getFilteredItems().map((invItem) => (
-//                                 <option key={invItem.id} value={invItem.id}>
-//                                   {invItem.itemName}
-//                                 </option>
-//                               ))}
-//                               <option value="new">+ Add New Item</option>
-//                             </select>
-//                           </div>
-
-//                           {item.itemId === "new" && (
-//                             <>
-//                               <div>
-//                                 <label className="block text-xs font-medium text-gray-600 mb-1">Item Name *</label>
-//                                 <input
-//                                   type="text"
-//                                   name="itemName"
-//                                   value={item.itemName}
-//                                   onChange={(e) => handleItemChange(index, e)}
-//                                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-//                                   required
-//                                 />
-//                               </div>
-                              
-//                               <div>
-//                                 <label className="block text-xs font-medium text-gray-600 mb-1">Category *</label>
-//                                 <select
-//                                   name="category"
-//                                   value={item.category}
-//                                   onChange={(e) => handleItemChange(index, e)}
-//                                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-//                                   required
-//                                 >
-//                                   <option value="1">Furniture and Fixture</option>
-//                                   <option value="2">Consumable</option>
-//                                   <option value="3">Deadstock</option>
-//                                 </select>
-//                               </div>
-//                             </>
-//                           )}
-                          
-//                           <div>
-//                             <label className="block text-xs font-medium text-gray-600 mb-1">Quantity *</label>
-//                             <input
-//                               type="number"
-//                               name="quantity"
-//                               value={item.quantity}
-//                               onChange={(e) => handleItemChange(index, e)}
-//                               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-//                               required
-//                               min="1"
-//                             />
-//                           </div>
-                          
-//                           <div>
-//                             <label className="block text-xs font-medium text-gray-600 mb-1">Unit Price *</label>
-//                             <input
-//                               type="number"
-//                               name="unitPrice"
-//                               value={item.unitPrice}
-//                               onChange={(e) => handleItemChange(index, e)}
-//                               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-//                               required
-//                               min="0"
-//                               step="0.01"
-//                             />
-//                           </div>
-//                         </div>
-//                       </div>
-//                     ))}
-//                   </div>
-//                 )}
-//               </div>
-//             )}
-            
-//             {currentStep === 2 && (
-//               <div className="space-y-4" style={{ minHeight: '400px' }}>
-//                 <div>
-//                   <label className="block text-sm font-medium text-gray-700 mb-1">Supplier / Source *</label>
-//                   <input
-//                     type="text"
-//                     name="supplier"
-//                     value={formData.supplier}
-//                     onChange={handleChange}
-//                     placeholder="Enter supplier or source"
-//                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//                     required
-//                   />
-//                 </div>
-                
-//                 <div>
-//                   <label className="block text-sm font-medium text-gray-700 mb-1">Procurement Date *</label>
-//                   <input
-//                     type="date"
-//                     name="procurementDate"
-//                     value={formData.procurementDate}
-//                     onChange={handleChange}
-//                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//                     required
-//                   />
-//                 </div>
-                
-//                 <div>
-//                   <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-//                   <textarea
-//                     name="notes"
-//                     value={formData.notes}
-//                     onChange={handleChange}
-//                     placeholder="Enter additional notes about this procurement"
-//                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//                     rows="3"
-//                   />
-//                 </div>
-                
-//                 <div className="flex justify-between mt-6">
-//                   <button
-//                     type="button"
-//                     onClick={prevStep}
-//                     className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-//                   >
-//                     Back
-//                   </button>
-//                   <button
-//                     type="button"
-//                     onClick={nextStep}
-//                     disabled={!formData.supplier || !formData.procurementDate}
-//                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-//                   >
-//                     Next
-//                   </button>
-//                 </div>
-//               </div>
-//             )}
-            
-//             {currentStep === 3 && (
-//               <div className="space-y-4 pb-6" style={{ minHeight: '400px' }}>
-//                 <div>
-//                   <h3 className="text-lg font-medium mb-2">Document Type</h3>
-//                   <select
-//                     name="documentType"
-//                     value={formData.documentType}
-//                     onChange={handleChange}
-//                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//                   >
-//                     <option value="">Select document type</option>
-//                     <option value="purchase_order">Purchase Order</option>
-//                     <option value="donation_letter">Donation Letter</option>
-//                     <option value="internal_memo">Internal Memo</option>
-//                   </select>
-//                 </div>
-                
-//                 <div className="mt-6">
-//                   <h3 className="text-lg font-medium mb-2">Upload Document</h3>
-//                   <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
-//                     <input
-//                       type="file"
-//                       onChange={handleFileChange}
-//                       accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-//                       className="hidden"
-//                       id="documentUpload"
-//                     />
-//                     <label
-//                       htmlFor="documentUpload"
-//                       className="cursor-pointer block"
-//                     >
-//                       <p className="text-sm text-gray-600">Drag and drop files here or click to browse</p>
-//                       <p className="text-xs text-gray-500 mt-1">PDF, DOC, JPG or PNG (max. 5MB)</p>
-//                     </label>
-//                     {formData.documentFile && (
-//                       <p className="text-sm text-green-600 mt-2">
-//                         {formData.documentFile.name} selected
-//                       </p>
-//                     )}
-//                   </div>
-//                 </div>
-//               </div>
-//             )}
-//           </form>
-//         </div>
-
-//         {currentStep === 3 && (
-//           <div className="p-4 border-t bg-white sticky bottom-0">
-//             <div className="flex justify-between">
-//               <button
-//                 type="button"
-//                 onClick={prevStep}
-//                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-//               >
-//                 Back
-//               </button>
-//               <div className="flex gap-2">
-//                 <button
-//                   type="button"
-//                   onClick={onClose}
-//                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-//                 >
-//                   Cancel
-//                 </button>
-//                 <button
-//                   type="submit"
-//                   onClick={handleSubmit}
-//                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-//                 >
-//                   Add Procurement
-//                 </button>
-//               </div>
-//             </div>
-//           </div>
-//         )}
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default AddProcurementForm;
-
-
-
-
-
-
-import React, { useState } from "react";
-
-export default function ProcurementForm() {
+export default function ProcurementForm({ procurement, onClose, onSubmit }) {
   const [procurementType, setProcurementType] = useState("");
   const [items, setItems] = useState([
-    { itemName: "", quantity: "", unitPrice: "", categoryID: "", isNew: false },
+    { itemName: "", quantity: "", unitPrice: "", categoryID: "", isNew: false, itemId: null },
   ]);
-const categoryOptions = ["Furniture", "Deadstock", "Consumables"];
-const existingItems = ["New Laptop", "Printer", "Office Desk"];
-const [activeTab, setActiveTab] = useState("basic");
-const [supplier, setSupplier] = useState("");
-const [ProcurementDate, setProcurementDate] = useState("");
-const [notes, setNotes] = useState("");
-const [documentType, setDocumentType] = useState("");
-const [uploadedFile, setUploadedFile] = useState(null);
+  const [availableItems, setAvailableItems] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [activeTab, setActiveTab] = useState("basic");
+  const [supplier, setSupplier] = useState("");
+  const [ProcurementDate, setProcurementDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [document, setDocument] = useState(null);
+  const [documentType, setDocumentType] = useState("");
 
-const formData = new FormData();
-formData.append("document_type", documentType);
-formData.append("file", uploadedFile);
-// Add other fields here
+  // Fetch available items and categories from backend
+  useEffect(() => {
+    const fetchItems = async () => {
+      try {
+        const response = await axios.get('http://localhost:8000/inventory/items/');
+        setAvailableItems(response.data);
+      } catch (error) {
+        console.error('Error fetching items:', error);
+      }
+    };
+    fetchItems();
+  }, []);
 
-// Then send via Axios
-// axios.post("/api/procurements/", formData, {
-//   headers: { "Content-Type": "multipart/form-data" },
-// });
+  useEffect(() => {
+    axios.get('http://localhost:8000/inventory/categories/')
+      .then(res => setCategories(res.data))
+      .catch(err => console.error(err));
+  }, []);
 
+  useEffect(() => {
+    if (procurement) {
+      setProcurementType(procurement.type || "");
+      setSupplier(procurement.supplier || "");
+      setProcurementDate(procurement.order_date || "");
+      setNotes(procurement.notes || "");
+      setDocument(null); // Don't prefill file
+      setItems([
+        {
+          itemName: procurement.item?.name || "",
+          quantity: procurement.quantity || "",
+          unitPrice: procurement.unit_price || "",
+          categoryID: procurement.item?.category?.id || "",
+          isNew: false,
+          itemId: procurement.item?.id || null,
+        },
+      ]);
+    }
+  }, [procurement]);
 
   const handleItemChange = (index, field, value) => {
     const updated = [...items];
     updated[index][field] = value;
 
     // If user chooses "+ Add New Item", switch to manual input mode
-    if (field === "itemName" && value === "+ Add New Item") {
-      updated[index] = { itemName: "", quantity: "", unitPrice: "", categoryID: "", isNew: true };
+    if (field === "itemName" && value === "__new__") {
+      updated[index] = { ...updated[index], itemName: "", itemId: null, isNew: true };
+    } else if (field === "itemName" && updated[index].isNew) {
+      // Keep isNew true when typing in the item name
+      updated[index] = { ...updated[index], itemName: value };
+    } else if (field === "itemName") {
+      // When selecting an existing item, store both name and ID
+      const selectedItem = availableItems.find(item => item.name === value);
+      updated[index] = { 
+        ...updated[index], 
+        itemName: value,
+        itemId: selectedItem?.id || null
+      };
     }
 
     setItems(updated);
   };
 
   const addItem = () => {
-    setItems([...items, { itemName: "", quantity: "", unitPrice: "", categoryID: "", isNew: false }]);
+    setItems([...items, { itemName: "", quantity: "", unitPrice: "", categoryID: "", isNew: false, itemId: null }]);
   };
 
   const removeItem = (index) => {
@@ -948,8 +86,66 @@ formData.append("file", uploadedFile);
     updated.splice(index, 1);
     setItems(updated);
   };
+
+  const handleFileUpload = (e) => {
+    setDocument(e.target.files[0] || null);
+  };
+
+  const removeDocument = () => {
+    setDocument(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (items.length === 0 || !items[0].itemName) {
+      alert("Please add at least one item to the procurement.");
+      return;
+    }
+    const formData = new FormData();
+    formData.append('supplier', supplier);
+    formData.append('order_date', ProcurementDate);
+    if (document) {
+      formData.append('document', document);
+    }
+    const item = items[0];
+    if (item.isNew) {
+      if (!item.itemName || !item.categoryID || !item.quantity || !item.unitPrice) {
+        alert("Please fill all fields for new items.");
+        return;
+      }
+      formData.append('item_name', item.itemName);
+      formData.append('category_id', Number(item.categoryID));
+    } else {
+      if (!item.itemId) {
+        alert("Please select an item.");
+        return;
+      }
+      formData.append('item_id', item.itemId);
+    }
+    formData.append('quantity', Number(item.quantity));
+    formData.append('unit_price', Number(item.unitPrice));
+    try {
+      if (procurement) {
+        await axios.patch(`http://localhost:8000/inventory/procurements/${procurement.id}/`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        alert('Procurement updated successfully!');
+      } else {
+        await axios.post('http://localhost:8000/inventory/procurements/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        alert('Procurement added successfully!');
+      }
+      if (onSubmit) onSubmit();
+      if (onClose) onClose();
+    } catch (error) {
+      const errorDetail = error.response?.data ? JSON.stringify(error.response.data) : error.message;
+      alert(`Error: ${errorDetail}`);
+    }
+  };
+
   return (
-    <div className="p-6 max-w-3xl mx-auto bg-white rounded-xl shadow-md min-h-[750px]">
+    <div className="p-6 bg-white rounded-xl shadow-md">
       <div className="border-b mb-4">
         <nav className="flex space-x-6 text-sm font-semibold text-blue-600 cursor-pointer">
           <div
@@ -976,10 +172,12 @@ formData.append("file", uploadedFile);
       <h2 className="text-2xl font-bold mb-4">Add New Procurement</h2>
   
       {activeTab === "additional" && (
-        <div className="space-y-4">
+        <div className="space-y-4 h-[400px] overflow-y-auto pr-4">
           <div>
-            <label className="block font-medium mb-1">Supplier / Source *</label>
+            <label htmlFor="supplier" className="block font-medium mb-1">Supplier / Source *</label>
             <input
+              id="supplier"
+              name="supplier"
               type="text"
               className="w-full border p-2 rounded"
               value={supplier}
@@ -989,8 +187,10 @@ formData.append("file", uploadedFile);
           </div>
   
           <div>
-            <label className="block font-medium mb-1">Procurement Date *</label>
+            <label htmlFor="procurement-date" className="block font-medium mb-1">Procurement Date *</label>
             <input
+              id="procurement-date"
+              name="procurement-date"
               type="date"
               className="w-full border p-2 rounded"
               value={ProcurementDate}
@@ -999,8 +199,10 @@ formData.append("file", uploadedFile);
           </div>
   
           <div>
-            <label className="block font-medium mb-1">Notes</label>
+            <label htmlFor="notes" className="block font-medium mb-1">Notes</label>
             <textarea
+              id="notes"
+              name="notes"
               className="w-full border p-2 rounded"
               rows="4"
               value={notes}
@@ -1030,9 +232,12 @@ formData.append("file", uploadedFile);
   
       {activeTab === "basic" && (
         <>
+        <div className="h-[400px] overflow-y-auto pr-4">
           <div className="mb-4">
-            <label className="block font-medium mb-1">Procurement Type *</label>
+            <label htmlFor="procurement-type" className="block font-medium mb-1">Procurement Type *</label>
             <select
+              id="procurement-type"
+              name="procurement-type"
               className="w-full border border-gray-300 p-2 rounded"
               value={procurementType}
               onChange={(e) => setProcurementType(e.target.value)}
@@ -1061,16 +266,18 @@ formData.append("file", uploadedFile);
   
                   {!item.isNew ? (
                     <>
-                      <label className="block mb-1">Item *</label>
+                      <label htmlFor={`itemName-${index}`} className="block mb-1">Item *</label>
                       <select
+                        id={`itemName-${index}`}
+                        name={`itemName-${index}`}
                         className="w-full border p-2 rounded mb-2"
                         value={item.itemName}
                         onChange={(e) => handleItemChange(index, "itemName", e.target.value)}
                       >
                         <option value="">Select an item</option>
-                        {existingItems.map((itemName, idx) => (
-                          <option key={idx} value={itemName}>
-                            {itemName}
+                        {availableItems.map((availItem) => (
+                          <option key={availItem.id} value={availItem.name}>
+                            {availItem.name}
                           </option>
                         ))}
                         <option value="__new__">+ Add new item</option>
@@ -1080,37 +287,48 @@ formData.append("file", uploadedFile);
   
                   {(item.itemName === "__new__" || item.isNew) && (
                     <>
+                      <label htmlFor={`newItemName-${index}`} className="block mb-1">Item Name *</label>
                       <input
+                        id={`newItemName-${index}`}
+                        name={`newItemName-${index}`}
                         type="text"
                         placeholder="Item Name *"
                         className="w-full border p-2 rounded mb-2"
                         value={item.itemName === "__new__" ? "" : item.itemName}
                         onChange={(e) => handleItemChange(index, "itemName", e.target.value)}
                       />
-                      <label className="block mb-1">Category *</label>
+                      <label htmlFor={`categoryID-${index}`} className="block mb-1">Category *</label>
                       <select
+                        id={`categoryID-${index}`}
+                        name={`categoryID-${index}`}
                         className="w-full border p-2 rounded mb-2"
                         value={item.categoryID}
                         onChange={(e) => handleItemChange(index, "categoryID", e.target.value)}
                       >
                         <option value="">Select category</option>
-                        {categoryOptions.map((cat, idx) => (
-                          <option key={idx} value={cat}>
-                            {cat}
+                        {categories.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
                           </option>
                         ))}
                       </select>
                     </>
                   )}
   
+                  <label htmlFor={`quantity-${index}`} className="block mb-1">Quantity *</label>
                   <input
+                    id={`quantity-${index}`}
+                    name={`quantity-${index}`}
                     type="number"
                     placeholder="Quantity *"
                     className="w-full border p-2 rounded mb-2"
                     value={item.quantity}
                     onChange={(e) => handleItemChange(index, "quantity", e.target.value)}
                   />
+                  <label htmlFor={`unitPrice-${index}`} className="block mb-1">Unit Price *</label>
                   <input
+                    id={`unitPrice-${index}`}
+                    name={`unitPrice-${index}`}
                     type="number"
                     step="0.01"
                     placeholder="Unit Price *"
@@ -1124,7 +342,8 @@ formData.append("file", uploadedFile);
               <button
                 type="button"
                 onClick={addItem}
-                className="text-blue-600 font-semibold mt-2 hover:underline"
+                className="text-blue-600 font-semibold mt-2 hover:underline disabled:text-gray-400 disabled:no-underline"
+                disabled={items.length > 0}
               >
                 + Add Item
               </button>
@@ -1140,57 +359,80 @@ formData.append("file", uploadedFile);
               </div>
             </>
           )}
+        </div>
         </>
       )}
+  
+      {activeTab === "docs" && (
+        <div className="space-y-4 h-[400px] overflow-y-auto pr-4">
+          <div>
+            <label htmlFor="documentType" className="block font-medium mb-1">Document Type</label>
+            <select
+              id="documentType"
+              name="documentType"
+              className="w-full border p-2 rounded"
+              value={documentType}
+              onChange={(e) => setDocumentType(e.target.value)}
+            >
+              <option value="">Select document type</option>
+              <option value="Purchase Order">Purchase Order</option>
+              <option value="MOU (Email)">MOU (Email)</option>
+              <option value="Internal Memo">Internal Memo</option>
+              <option value="Donation Letter">Donation Letter</option>
+              <option value="Invoice">Invoice</option>
+            </select>
+            <p className="text-sm text-gray-500 mt-1">Type of document associated with this procurement.</p>
+          </div>
 
-{activeTab === "docs" && (
-  <div className="space-y-4">
-    <div>
-      <label className="block font-medium mb-1">Document Type *</label>
-      <select
-        className="w-full border p-2 rounded"
-        value={documentType}
-        onChange={(e) => setDocumentType(e.target.value)}
-      >
-        <option value="">Select document type</option>
-        <option value="invoice">Invoice</option>
-        <option value="warranty">Warranty</option>
-        <option value="delivery_note">Delivery Note</option>
-      </select>
-    </div>
+          <div>
+            <label className="block font-medium mb-1">Upload Document</label>
+            <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center cursor-pointer hover:border-blue-500">
+              <input
+                id="documents"
+                name="documents"
+                type="file"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <label htmlFor="documents" className="cursor-pointer">
+                <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                  <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <p className="mt-1 block font-medium text-blue-600">
+                  Click to upload
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  PDF, DOC, JPG or PNG (max. 5MB)
+                </p>
+              </label>
+            </div>
+          </div>
 
-    <div className="border-dashed border-2 border-gray-300 p-6 text-center rounded cursor-pointer hover:border-blue-400">
-      <label className="cursor-pointer block">
-        <input
-          type="file"
-          className="hidden"
-          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-          onChange={(e) => setUploadedFile(e.target.files[0])}
-        />
-        <p>{uploadedFile ? uploadedFile.name : "Drag and drop files here or click to browse"}</p>
-        <p className="text-sm text-gray-500">PDF, DOC, JPG or PNG (max. 5MB)</p>
-      </label>
-    </div>
+          {document && (
+            <div className="mt-4">
+              <h4 className="font-medium mb-2">Uploaded Document:</h4>
+              <span>{document.name}</span>
+            </div>
+          )}
 
-    <div className="flex justify-between mt-6">
-      <button
-        type="button"
-        className="px-4 py-2 bg-gray-200 rounded"
-        onClick={() => setActiveTab("additional")}
-      >
-        Back
-      </button>
-      <button
-        type="submit"
-        className="px-4 py-2 bg-blue-600 text-white rounded"
-      >
-        Add Procurement
-      </button>
-    </div>
-  </div>
-)}
-
-
+          <div className="flex justify-between mt-6">
+            <button
+              type="button"
+              className="px-4 py-2 bg-gray-200 rounded"
+              onClick={() => setActiveTab("additional")}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              className="px-4 py-2 bg-blue-600 text-white rounded"
+              onClick={handleSubmit}
+            >
+              Submit Procurement
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+}

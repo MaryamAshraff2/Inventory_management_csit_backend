@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { FaMapMarkerAlt, FaEdit, FaTrash } from 'react-icons/fa';
 
@@ -29,7 +28,7 @@ const DepartmentTable = ({ departments, onEdit, onDelete }) => {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dept.id}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{dept.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dept.email}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dept.userCount}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dept.user_count}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   <button 
                     onClick={() => toggleLocations(dept.id)}
@@ -61,8 +60,8 @@ const DepartmentTable = ({ departments, onEdit, onDelete }) => {
                     <div className="pl-12">
                       <h4 className="font-medium mb-2">{dept.name} Locations:</h4>
                       <ul className="list-disc pl-5 space-y-1">
-                        {dept.locations?.map((location, index) => (
-                          <li key={index} className="text-sm text-gray-700">{location}</li>
+                        {(dept.locations || []).map((location, index) => (
+                          <li key={index} className="text-sm text-gray-700">{location.name}</li>
                         ))}
                       </ul>
                     </div>

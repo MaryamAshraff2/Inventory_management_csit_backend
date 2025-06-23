@@ -113,13 +113,14 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'BCITINVENTORY',
-        'USER': 'postgres',
-        'PASSWORD': 12345678,
+        'NAME': 'NED_Inventory',
+        'USER': 'sara',
+        'PASSWORD': '12345678',
         'HOST': 'localhost',        
         'PORT': '5432',            
     }
 }
+
 
 
 

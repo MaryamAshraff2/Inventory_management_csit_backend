@@ -1,14 +1,26 @@
 import { useState, useEffect } from 'react';
 import { FiX } from 'react-icons/fi';
+import axios from 'axios';
 
-const AddUserForm = ({ user, departments, onClose, onSubmit }) => {
+const API_BASE = 'http://localhost:8000/inventory'; // Change if your backend runs elsewhere
+
+const AddUserForm = ({ user, onClose, onSubmit }) => {
+  const [departments, setDepartments] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     role: 'User',
-    department: departments[0] || '',
-    status: 'Active'
+    department: ''
   });
+
+  useEffect(() => {
+    axios.get(`${API_BASE}/departments/`).then(res => {
+      setDepartments(res.data);
+      if (!user && res.data.length > 0) {
+        setFormData(prev => ({ ...prev, department: res.data[0].id }));
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -16,8 +28,7 @@ const AddUserForm = ({ user, departments, onClose, onSubmit }) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        department: user.department,
-        status: user.status
+        department: user.department?.id || user.department
       });
     }
   }, [user]);
@@ -32,7 +43,19 @@ const AddUserForm = ({ user, departments, onClose, onSubmit }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    if (user) {
+      axios.patch(`${API_BASE}/users/${user.id}/`, formData)
+        .then(res => {
+          if (onSubmit) onSubmit(res.data);
+          if (onClose) onClose();
+        });
+    } else {
+      axios.post(`${API_BASE}/users/`, formData)
+        .then(res => {
+          if (onSubmit) onSubmit(res.data);
+          if (onClose) onClose();
+        });
+    }
   };
 
   return (
@@ -110,24 +133,8 @@ const AddUserForm = ({ user, departments, onClose, onSubmit }) => {
                 required
               >
                 {departments.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
+                  <option key={dept.id} value={dept.id}>{dept.name}</option>
                 ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-                Status
-              </label>
-              <select
-                name="status"
-                id="status"
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                value={formData.status}
-                onChange={handleChange}
-              >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
               </select>
             </div>
           </div>

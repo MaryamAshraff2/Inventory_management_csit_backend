@@ -20,9 +20,9 @@ const LocationTable = ({ locations, onEdit, onDelete }) => {
             <tr key={loc.id}>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.id}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{loc.name}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.department}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.roomNumber}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.description}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.department_name}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.room_number || ''}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.description || ''}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 <button 
                   onClick={() => onEdit(loc)}

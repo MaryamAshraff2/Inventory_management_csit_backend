@@ -4,6 +4,8 @@ import Navbar from "../components/Navbar";
 import LocationTable from "../components/LocationTable";
 import LocationForm from "../components/AddLocationForm";
 
+const API_BASE = 'http://localhost:8000/inventory'; // Adjust if your backend is served elsewhere
+
 const Locations = () => {
   const [showForm, setShowForm] = useState(false);
   const [locations, setLocations] = useState([]);
@@ -15,18 +17,22 @@ const Locations = () => {
   const [editingLocation, setEditingLocation] = useState(null);
   const [departments, setDepartments] = useState([]);
 
+  // Fetch locations and departments from backend
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Mock data - replace with API calls
-        setLocations([
-          { id: 1, name: "Main Warehouse", department: "Operations", roomNumber: "W101", description: "Primary storage facility" },
-          { id: 2, name: "IT Storage", department: "IT", roomNumber: "IT205", description: "Tech equipment storage" },
-          { id: 3, name: "Sales Showroom", department: "Sales", roomNumber: "SH001", description: "Product display area" }
+        const [locRes, deptRes] = await Promise.all([
+          fetch(`${API_BASE}/locations/`),
+          fetch(`${API_BASE}/departments/`)
         ]);
-        
-        setDepartments(["IT", "HR", "Finance", "Operations", "Sales"]);
+        const locData = await locRes.json();
+        const deptData = await deptRes.json();
+        setLocations(locData);
+        setDepartments(deptData);
+      } catch (e) {
+        setLocations([]);
+        setDepartments([]);
       } finally {
         setLoading(false);
       }
@@ -34,12 +40,20 @@ const Locations = () => {
     fetchData();
   }, []);
 
+  // Helper to get department name by id
+  const getDepartmentName = (deptId) => {
+    const dept = departments.find((d) => d.id === deptId);
+    return dept ? dept.name : "Unassigned";
+  };
+
   const filteredLocations = locations.filter((loc) => {
     const searchLower = searchTerm.toLowerCase();
     if (filterBy === "name") {
       return loc.name.toLowerCase().includes(searchLower);
     } else {
-      return loc.department.toLowerCase().includes(searchLower);
+      // loc.department can be id or object
+      const deptName = typeof loc.department === "object" ? loc.department.name : getDepartmentName(loc.department);
+      return deptName.toLowerCase().includes(searchLower);
     }
   });
 
@@ -49,36 +63,53 @@ const Locations = () => {
     currentPage * rowsPerPage
   );
 
-  const handleAddLocation = (newLocation) => {
-    if (editingLocation) {
-      // Update existing location
-      setLocations(
-        locations.map((loc) =>
-          loc.id === editingLocation.id 
-            ? { ...newLocation, id: editingLocation.id } 
-            : loc
-        )
-      );
-    } else {
-      // Add new location
-      const newLoc = {
-        ...newLocation,
-        id: Math.max(...locations.map((loc) => loc.id), 0) + 1,
-      };
-      setLocations([...locations, newLoc]);
+  // Add or edit location
+  const handleAddLocation = async (newLocation) => {
+    try {
+      setLoading(true);
+      if (editingLocation) {
+        // Update existing location
+        const res = await fetch(`${API_BASE}/locations/${editingLocation.id}/`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newLocation)
+        });
+        if (res.ok) {
+          const updated = await res.json();
+          setLocations(locations.map((loc) => (loc.id === editingLocation.id ? updated : loc)));
+        }
+      } else {
+        // Add new location
+        const res = await fetch(`${API_BASE}/locations/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newLocation)
+        });
+        if (res.ok) {
+          const created = await res.json();
+          setLocations([...locations, created]);
+        }
+      }
+    } finally {
+      setShowForm(false);
+      setEditingLocation(null);
+      setLoading(false);
     }
-    setShowForm(false);
-    setEditingLocation(null);
   };
 
+  // Edit handler
   const handleEdit = (location) => {
     setEditingLocation(location);
     setShowForm(true);
   };
 
-  const handleDelete = (id) => {
+  // Delete handler
+  const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this location?")) {
+      setLoading(true);
+      await fetch(`${API_BASE}/locations/${id}/`, { method: "DELETE" });
       setLocations(locations.filter((loc) => loc.id !== id));
+      setLoading(false);
     }
   };
 
@@ -162,7 +193,10 @@ const Locations = () => {
             ) : (
               <>
                 <LocationTable
-                  locations={paginatedLocations}
+                  locations={paginatedLocations.map(loc => ({
+                    ...loc,
+                    department: typeof loc.department === "object" ? loc.department.name : getDepartmentName(loc.department)
+                  }))}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                 />

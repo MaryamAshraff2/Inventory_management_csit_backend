@@ -1,15 +1,33 @@
 from rest_framework import viewsets
-from ..models import Department
-from ..serializers import DepartmentSerializer
+from ..models import Department, Location
+from ..serializers import DepartmentSerializer, LocationSerializer
 
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework import status
 
 
 class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
+
+    def create(self, request, *args, **kwargs):
+        # Ensure user_count is 0 and no locations assigned
+        data = request.data.copy()
+        data['user_count'] = 0
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=True, methods=['get'])
+    def locations(self, request, pk=None):
+        department = self.get_object()
+        locations = department.locations.all()
+        serializer = LocationSerializer(locations, many=True)
+        return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def search(self, request):

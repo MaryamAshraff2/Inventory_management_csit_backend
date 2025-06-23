@@ -4,8 +4,8 @@ import { FaTimes } from 'react-icons/fa';
 const LocationForm = ({ onClose, onSubmit, location, departments }) => {
   const [formData, setFormData] = useState({
     name: '',
-    department: departments[0] || '',
-    roomNumber: '',
+    department: departments[0]?.id || '',
+    room_number: '',
     description: ''
   });
 
@@ -13,15 +13,15 @@ const LocationForm = ({ onClose, onSubmit, location, departments }) => {
     if (location) {
       setFormData({
         name: location.name,
-        department: location.department,
-        roomNumber: location.roomNumber,
-        description: location.description
+        department: location.department?.id || location.department || '',
+        room_number: location.room_number || '',
+        description: location.description || ''
       });
     } else {
       setFormData({
         name: '',
-        department: departments[0] || '',
-        roomNumber: '',
+        department: departments[0]?.id || '',
+        room_number: '',
         description: ''
       });
     }
@@ -37,7 +37,13 @@ const LocationForm = ({ onClose, onSubmit, location, departments }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    // Only send fields needed by backend
+    onSubmit({
+      name: formData.name,
+      department: formData.department,
+      room_number: formData.room_number,
+      description: formData.description
+    });
   };
 
   return (
@@ -91,7 +97,7 @@ const LocationForm = ({ onClose, onSubmit, location, departments }) => {
                   required
                 >
                   {departments.map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
+                    <option key={dept.id} value={dept.id}>{dept.name}</option>
                   ))}
                 </select>
               </div>
@@ -100,8 +106,8 @@ const LocationForm = ({ onClose, onSubmit, location, departments }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Room Number *</label>
                 <input
                   type="text"
-                  name="roomNumber"
-                  value={formData.roomNumber}
+                  name="room_number"
+                  value={formData.room_number}
                   onChange={handleChange}
                   placeholder="e.g., W101, IT205"
                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
