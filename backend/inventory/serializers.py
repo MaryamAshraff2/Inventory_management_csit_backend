@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import  User, Department, Category, Item, Procurement, Location
+from .models import  User, Department, Category, Item, Procurement, Location, StockMovement
 
 class LocationSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source='department.name', read_only=True)
@@ -117,3 +117,22 @@ class ProcurementSerializer(serializers.ModelSerializer):
             procurement = Procurement.objects.create(**validated_data)
             
         return procurement
+
+class StockMovementSerializer(serializers.ModelSerializer):
+    item = ItemSerializer(read_only=True)
+    item_id = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all(), source='item', write_only=True)
+    from_location = LocationSerializer(read_only=True)
+    from_location_id = serializers.PrimaryKeyRelatedField(queryset=Location.objects.all(), source='from_location', write_only=True)
+    to_location = LocationSerializer(read_only=True)
+    to_location_id = serializers.PrimaryKeyRelatedField(queryset=Location.objects.all(), source='to_location', write_only=True)
+    received_by = UserSerializer(read_only=True)
+    received_by_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='received_by', write_only=True)
+
+    class Meta:
+        model = StockMovement
+        fields = [
+            'id', 'item', 'item_id', 'from_location', 'from_location_id',
+            'to_location', 'to_location_id', 'quantity', 'movement_date',
+            'received_by', 'received_by_id', 'notes'
+        ]
+        read_only_fields = ['id', 'item', 'from_location', 'to_location', 'received_by', 'movement_date']

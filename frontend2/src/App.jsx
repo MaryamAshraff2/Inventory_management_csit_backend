@@ -9,6 +9,7 @@ import Procurements from "./pages/procurements";
 import DiscardedItems from "./pages/discardeditems";
 import Loginpage from "./pages/loginpage";
 import Inventory from "./pages/Inventory";
+import StockMovement from './pages/StockMovement';
 
 function App() {
   const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
@@ -31,6 +32,7 @@ function App() {
           <Route path="/procurements" element={<Procurements />} />
           <Route path="/discardeditems" element={<DiscardedItems />} />
           <Route path="/inventory" element={<Inventory/>} />
+          <Route path="/stock-movements" element={<StockMovement />} />
         </Routes>
       </div>
     </Router>

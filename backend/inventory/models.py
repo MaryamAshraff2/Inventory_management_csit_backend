@@ -70,3 +70,16 @@ class Location(models.Model):
 
     def __str__(self):
         return self.name 
+
+
+class StockMovement(models.Model):
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='stock_movements')
+    from_location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='stock_movements_from')
+    to_location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='stock_movements_to')
+    quantity = models.PositiveIntegerField()
+    movement_date = models.DateField(auto_now_add=True)
+    received_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_stock_movements')
+    notes = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.quantity} x {self.item.name} from {self.from_location.name} to {self.to_location.name} on {self.movement_date} (Received by: {self.received_by.name})" 
