@@ -158,7 +158,7 @@ const StockMovement = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{movement.quantity}</td>
                         
                         {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{movement.date ? movement.date.slice(0, 10) : ''}</td> */}
-                        {movement.movement_date ? movement.movement_date.slice(0, 10) : ''}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{movement.movement_date ? movement.movement_date.slice(0, 10) : ''}</td>
 
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{movement.received_by?.name || movement.receivedBy || ''}</td>
                       </tr>

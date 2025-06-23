@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import  User, Department, Category, Item, Procurement, Location, StockMovement
+from .models import  User, Department, Category, Item, Procurement, Location, StockMovement, SendingStockRequest
 
 class LocationSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source='department.name', read_only=True)
@@ -136,3 +136,48 @@ class StockMovementSerializer(serializers.ModelSerializer):
             'received_by', 'received_by_id', 'notes'
         ]
         read_only_fields = ['id', 'item', 'from_location', 'to_location', 'received_by', 'movement_date']
+
+# # one serializer for stock request
+# # serializers.py
+# class StockRequestSerializer(serializers.ModelSerializer):
+#     item_name = serializers.CharField(source='item.name', read_only=True)
+#     requester_name = serializers.CharField(source='requested_by.get_full_name', read_only=True)
+#     item_id = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all(), source='item', write_only=True)
+    
+#     class Meta:
+#         model = StockRequest
+#         fields = [
+#             'id', 'item', 'item_id', 'item_name', 'quantity', 
+#             'status', 'created_at', 'updated_at',
+#             'requested_by', 'requester_name'
+#         ]
+#         read_only_fields = [
+#             'id', 'status', 'created_at', 
+#             'updated_at', 'requester_name'
+#         ]
+
+# # two serializers for stock request
+# class StockRequestSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = StockRequest
+#         fields = [
+#             'id', 'item', 'requester_name', 'quantity', 'date_requested', 'status', 'created_at', 'updated_at'
+#         ]
+#         read_only_fields = ['id', 'created_at', 'updated_at']
+
+# # userview serializers
+from rest_framework import serializers
+from .models import SendingStockRequest
+
+class SendingStockRequestSerializer(serializers.ModelSerializer):
+    item = ItemSerializer(read_only=True)
+    item_id = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all(), source='item', write_only=True)
+    requested_by = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = SendingStockRequest
+        fields = '__all__'
+        # fields = [
+        #     'id', 'item', 'item_id', 'quantity', 'requested_by', 'status', 'created_at'
+        # ]
+        # read_only_fields = ['id', 'item', 'requested_by', 'status', 'created_at']
