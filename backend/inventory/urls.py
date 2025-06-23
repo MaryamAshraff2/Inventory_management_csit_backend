@@ -12,6 +12,7 @@ from .views.locations import LocationViewSet
 from .views.stockmovements import StockMovementViewSet
 from .views.sendingstockrequests import SendingStockRequestViewSet
 from .views.discardeditems import DiscardedItemViewSet
+from .views.reports import ReportViewSet
 
 
 # Router for ViewSets
@@ -25,6 +26,7 @@ router.register(r'procurements', ProcurementViewSet)
 router.register(r'stockmovements', StockMovementViewSet)
 router.register(r'sendingstockrequests', SendingStockRequestViewSet)
 router.register(r'discardeditems', DiscardedItemViewSet)
+router.register(r'reports', ReportViewSet)
 
 urlpatterns = [
     path('login/', login_api, name='login'),

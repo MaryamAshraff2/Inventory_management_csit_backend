@@ -147,4 +147,123 @@ export const categoriesAPI = {
 // Departments API
 export const departmentsAPI = {
   getAll: () => apiRequest('/departments/'),
+};
+
+// Reports API
+export const reportsAPI = {
+  // Get all reports
+  getAll: () => apiRequest('/reports/'),
+  
+  // Get a specific report
+  getById: (id) => apiRequest(`/reports/${id}/`),
+  
+  // Create a new report
+  create: (data) => apiRequest('/reports/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  
+  // Update a report
+  update: (id, data) => apiRequest(`/reports/${id}/`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  
+  // Delete a report
+  delete: (id) => apiRequest(`/reports/${id}/`, {
+    method: 'DELETE',
+  }),
+
+  // Generate specific report types
+  generateProcurementReport: (filters) => apiRequest('/reports/generate_procurement_report/', {
+    method: 'POST',
+    body: JSON.stringify({ filters }),
+  }),
+
+  generateStockMovementReport: (filters) => apiRequest('/reports/generate_stock_movement_report/', {
+    method: 'POST',
+    body: JSON.stringify({ filters }),
+  }),
+
+  generateInventoryReport: (filters) => apiRequest('/reports/generate_inventory_report/', {
+    method: 'POST',
+    body: JSON.stringify({ filters }),
+  }),
+
+  generateStockRequestsReport: (filters) => apiRequest('/reports/generate_stock_requests_report/', {
+    method: 'POST',
+    body: JSON.stringify({ filters }),
+  }),
+
+  generateDiscardedItemsReport: (filters) => apiRequest('/reports/generate_discarded_items_report/', {
+    method: 'POST',
+    body: JSON.stringify({ filters }),
+  }),
+
+  // Export reports
+  exportPdf: async (reportId) => {
+    const url = `${API_BASE_URL}/reports/${reportId}/export_pdf/`;
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+      
+      // Get the filename from the response headers
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'report.pdf';
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      // Get the blob and create download link
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      return { success: true, filename };
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      throw error;
+    }
+  },
+
+  exportExcel: async (reportId) => {
+    const url = `${API_BASE_URL}/reports/${reportId}/export_excel/`;
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+      
+      // For now, Excel export returns JSON (not implemented yet)
+      return await response.json();
+    } catch (error) {
+      console.error('Excel export failed:', error);
+      throw error;
+    }
+  },
 }; 

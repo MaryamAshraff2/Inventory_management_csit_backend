@@ -124,3 +124,15 @@ class DiscardedItem(models.Model):
             self.item.quantity -= self.quantity
             self.item.save()
         super().save(*args, **kwargs)
+
+
+class Report(models.Model):
+    report_type = models.CharField(max_length=50)  # e.g., "Procurement", "Stock Movement"
+    filters = models.JSONField(blank=True, null=True)  # To store filter parameters as JSON 
+    generated_at = models.DateTimeField(auto_now_add=True)
+    generated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    export_pdf = models.FileField(upload_to='report_exports/pdf/', blank=True, null=True)
+    export_excel = models.FileField(upload_to='report_exports/excel/', blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.report_type} Report generated on {self.generated_at.strftime('%Y-%m-%d %H:%M:%S')}"
