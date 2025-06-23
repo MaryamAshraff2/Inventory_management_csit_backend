@@ -13,7 +13,7 @@ const Sidebar = () => {
   return (
     <div className="sidebar w-64 bg-gray-800 text-white h-screen flex flex-col">
       <div className="p-4 border-b border-gray-700">
-        <h1 className="text-xl font-bold">ManageVerse</h1>
+        <h1 className="text-xl font-bold">NED UET Inventory</h1>
       </div>
       <nav className="p-4 flex-1 overflow-y-auto">
         <ul className="space-y-2">
@@ -152,8 +152,8 @@ const Sidebar = () => {
         </ul>
       </nav>
       <div className="p-4 bg-gray-800 border-t border-gray-700">
-        <p className="text-sm text-gray-400">Activate Windows</p>
-        <p className="text-xs text-gray-500">Go to Settings to activate Windows.</p>
+        <p className="text-sm text-gray-400">Developed by CS department</p>
+        <p className="text-xs text-gray-500">NED UET</p>
       </div>
     </div>
   )
