@@ -104,26 +104,43 @@ export default function ProcurementForm({ procurement, onClose, onSubmit }) {
     const formData = new FormData();
     formData.append('supplier', supplier);
     formData.append('order_date', ProcurementDate);
+    formData.append('procurement_type', procurementType);
+    formData.append('document_type', documentType);
     if (document) {
       formData.append('document', document);
     }
-    const item = items[0];
-    if (item.isNew) {
-      if (!item.itemName || !item.categoryID || !item.quantity || !item.unitPrice) {
-        alert("Please fill all fields for new items.");
-        return;
+    // Build items array for backend
+    const itemsArray = items.map(item => {
+      if (item.isNew || item.itemName === "__new__") {
+        if (!item.itemName || !item.categoryID || !item.quantity || !item.unitPrice) {
+          throw new Error("Please fill all fields for new items.");
+        }
+        return {
+          item_data: {
+            name: item.itemName,
+            category: Number(item.categoryID),
+            unit_price: Number(item.unitPrice)
+          },
+          quantity: Number(item.quantity),
+          unit_price: Number(item.unitPrice)
+        };
+      } else {
+        if (!item.itemId) {
+          throw new Error("Please select an item.");
+        }
+        return {
+          item: item.itemId,
+          quantity: Number(item.quantity),
+          unit_price: Number(item.unitPrice)
+        };
       }
-      formData.append('item_name', item.itemName);
-      formData.append('category_id', Number(item.categoryID));
-    } else {
-      if (!item.itemId) {
-        alert("Please select an item.");
-        return;
-      }
-      formData.append('item_id', item.itemId);
+    });
+    try {
+      formData.append('items', JSON.stringify(itemsArray));
+    } catch (err) {
+      alert('Error serializing items: ' + err.message);
+      return;
     }
-    formData.append('quantity', Number(item.quantity));
-    formData.append('unit_price', Number(item.unitPrice));
     try {
       if (procurement) {
         await axios.patch(`http://localhost:8000/inventory/procurements/${procurement.id}/`, formData, {
@@ -342,8 +359,7 @@ export default function ProcurementForm({ procurement, onClose, onSubmit }) {
               <button
                 type="button"
                 onClick={addItem}
-                className="text-blue-600 font-semibold mt-2 hover:underline disabled:text-gray-400 disabled:no-underline"
-                disabled={items.length > 0}
+                className="text-blue-600 font-semibold mt-2 hover:underline"
               >
                 + Add Item
               </button>

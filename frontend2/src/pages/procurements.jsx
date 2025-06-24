@@ -6,6 +6,19 @@ import axios from 'axios';
 import ProcurementDetailsModal from '../components/ProcurementDetailsModal';
 import ProcurementViewModal from '../components/ProcurementViewModal';
 
+const FILTER_OPTIONS = [
+  { value: 'order_number', label: 'By Order Number', placeholder: 'Search order numbers...' },
+  { value: 'supplier', label: 'By Supplier', placeholder: 'Search suppliers...' },
+  { value: 'procurement_type', label: 'By Procurement Type', placeholder: 'Search procurement types...' },
+  { value: 'document_type', label: 'By Document Type', placeholder: 'Search document types...' },
+];
+
+const SHOW_OPTIONS = [
+  { value: 'all', label: 'All Time' },
+  { value: '7', label: 'Last 7 days' },
+  { value: '30', label: 'Last 30 days' },
+];
+
 const ProcurementPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [procurements, setProcurements] = useState([]);
@@ -16,6 +29,10 @@ const ProcurementPage = () => {
   const [modalMode, setModalMode] = useState('view');
   const [editingProcurement, setEditingProcurement] = useState(null);
   const [viewProcurement, setViewProcurement] = useState(null);
+  const [filterType, setFilterType] = useState('order_number');
+  const [showOption, setShowOption] = useState(SHOW_OPTIONS[0].value);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Fetch procurements from backend
   const fetchProcurements = async () => {
@@ -37,15 +54,38 @@ const ProcurementPage = () => {
     ...Array.from(new Set(procurements.map((p) => p.supplier || ''))).filter(Boolean),
   ];
 
-  // Filtered procurements
+  // Date filter logic
+  const now = new Date();
+  let dateThreshold = null;
+  if (showOption === '7') {
+    dateThreshold = new Date(now);
+    dateThreshold.setDate(now.getDate() - 7);
+  } else if (showOption === '30') {
+    dateThreshold = new Date(now);
+    dateThreshold.setDate(now.getDate() - 30);
+  }
+
+  // Filtering logic
   const filteredProcurements = procurements.filter((proc) => {
-    const matchesSearch =
-      (proc.order_number && proc.order_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (proc.supplier && proc.supplier.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesSupplier = supplierFilter === 'All Suppliers' || proc.supplier === supplierFilter;
-    // Time filter is not implemented (for demo)
-    return matchesSearch && matchesSupplier;
+    const search = searchTerm.toLowerCase();
+    if (!search) return true;
+    if (filterType === 'order_number') {
+      return proc.order_number && proc.order_number.toLowerCase().includes(search);
+    } else if (filterType === 'supplier') {
+      return proc.supplier && proc.supplier.toLowerCase().includes(search);
+    } else if (filterType === 'procurement_type') {
+      return proc.procurement_type && proc.procurement_type.toLowerCase().includes(search);
+    } else if (filterType === 'document_type') {
+      return proc.document_type && proc.document_type.toLowerCase().includes(search);
+    }
+    return true;
   });
+
+  const totalPages = Math.ceil(filteredProcurements.length / rowsPerPage);
+  const paginatedProcurements = filteredProcurements.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
 
   // Add new procurement handler
   const handleAddClick = () => {
@@ -106,36 +146,55 @@ const ProcurementPage = () => {
                 Add New Procurement
               </button>
             </div>
-            {/* Filters Section */}
-            <div className="mb-6 flex flex-col sm:flex-row gap-4">
-              <input
-                type="text"
-                placeholder="Search by order number or supplier..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <select
-                value={supplierFilter}
-                onChange={(e) => setSupplierFilter(e.target.value)}
-                className="border border-gray-300 rounded-md px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {uniqueSuppliers.map((supplier) => (
-                  <option key={supplier} value={supplier}>
-                    {supplier}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={timeFilter}
-                onChange={(e) => setTimeFilter(e.target.value)}
-                className="border border-gray-300 rounded-md px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option>All Time</option>
-                <option>Last 7 days</option>
-                <option>Last 30 days</option>
-                <option>Last 90 days</option>
-              </select>
+            {/* Filters Section - department style */}
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+              <div className="flex-1">
+                <div className="flex border rounded-md overflow-hidden">
+                  <select
+                    value={filterType}
+                    onChange={e => {
+                      setFilterType(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="bg-gray-100 px-3 py-2 text-sm focus:outline-none"
+                  >
+                    <option value="order_number">By Order Number</option>
+                    <option value="supplier">By Supplier</option>
+                    <option value="procurement_type">By Procurement Type</option>
+                    <option value="document_type">By Document Type</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder={
+                      filterType === 'order_number' ? 'Search order numbers...' :
+                      filterType === 'supplier' ? 'Search suppliers...' :
+                      filterType === 'procurement_type' ? 'Search procurement types...' :
+                      'Search document types...'
+                    }
+                    value={searchTerm}
+                    onChange={e => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="flex-1 px-3 py-2 text-sm focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Show:</span>
+                <select
+                  value={rowsPerPage}
+                  onChange={e => {
+                    setRowsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="border rounded px-3 py-2 text-sm"
+                >
+                  {[5, 10, 20, 50].map((num) => (
+                    <option key={num} value={num}>{num}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             {/* Procurement Table */}
             <div className="overflow-x-auto">
@@ -144,6 +203,7 @@ const ProcurementPage = () => {
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ORDER NUMBER</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SUPPLIER</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PROCUREMENT TYPE</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ORDER DATE</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TOTAL AMOUNT</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOCUMENT</th>
@@ -151,8 +211,8 @@ const ProcurementPage = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredProcurements.length > 0 ? (
-                    filteredProcurements.map((proc) => (
+                  {paginatedProcurements.length > 0 ? (
+                    paginatedProcurements.map((proc) => (
                       <tr key={proc.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {proc.order_number}
@@ -161,10 +221,18 @@ const ProcurementPage = () => {
                           {proc.supplier || 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {proc.procurement_type || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {proc.order_date ? new Date(proc.order_date).toLocaleDateString() : 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          ${parseFloat(proc.total_amount).toFixed(2)}
+                          {proc.total_amount ? 
+                            `$${parseFloat(proc.total_amount).toFixed(2)}` : 
+                            proc.items && proc.items.length > 0 ?
+                              `$${proc.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0).toFixed(2)}` :
+                              '$0.00'
+                          }
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-500">
                           {proc.document ? (
@@ -184,7 +252,7 @@ const ProcurementPage = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
+                      <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
                         No procurements found matching your criteria
                       </td>
                     </tr>

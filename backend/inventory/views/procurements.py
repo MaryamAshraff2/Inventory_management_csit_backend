@@ -1,5 +1,5 @@
 from rest_framework import viewsets
-from ..models import Procurement
+from ..models import Procurement, ProcurementItem
 from ..serializers import ProcurementSerializer
 
 class ProcurementViewSet(viewsets.ModelViewSet):

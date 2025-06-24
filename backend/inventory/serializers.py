@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import  User, Department, Category, Item, Procurement, Location
+import json
+from .models import  User, Department, Category, Item, Procurement, Location, ProcurementItem
 
 class LocationSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source='department.name', read_only=True)
@@ -43,77 +44,72 @@ class ItemSerializer(serializers.ModelSerializer):
         model = Item
         fields = ['id', 'name', 'quantity', 'unit_price', 'category', 'category_id']
 
-class ProcurementSerializer(serializers.ModelSerializer):
-    # Write-only fields for input
-    item_name = serializers.CharField(write_only=True, required=False)
-    item_id = serializers.IntegerField(write_only=True, required=False)
-    category_id = serializers.IntegerField(write_only=True, required=False)
+class ProcurementItemSerializer(serializers.ModelSerializer):
+    item_name = serializers.CharField(source='item.name', read_only=True)
 
-    # Read-only field for output
-    item = ItemSerializer(read_only=True)
+    class Meta:
+        model = ProcurementItem
+        fields = ['item', 'item_name', 'quantity', 'unit_price']
+
+class ProcurementSerializer(serializers.ModelSerializer):
+    items = ProcurementItemSerializer(many=True, read_only=True)
     order_number = serializers.CharField(read_only=True)
     supplier = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     document = serializers.FileField(required=False, allow_null=True)
-    total_amount = serializers.SerializerMethodField()
+    document_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    procurement_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     order_date = serializers.DateField(required=False, allow_null=True)
+    total_amount = serializers.SerializerMethodField()
 
     class Meta:
         model = Procurement
         fields = (
-            'id', 'item', 'quantity', 'unit_price', 'created_at',
-            'item_name', 'item_id', 'category_id',
-            'order_number', 'supplier', 'document', 'total_amount', 'order_date'
+            'id', 'created_at', 'order_number', 'supplier', 'document', 'document_type', 
+            'procurement_type', 'order_date', 'items', 'total_amount'
         )
 
     def get_total_amount(self, obj):
-        return float(obj.unit_price) * obj.quantity
-
-    def validate(self, data):
-        if 'item_id' not in data and ('item_name' not in data or 'category_id' not in data):
-            raise serializers.ValidationError("For a new item, you must provide both 'item_name' and 'category_id'. For an existing item, provide 'item_id'.")
-        if data.get('item_id') and data.get('item_name'):
-            raise serializers.ValidationError("Provide either 'item_id' for an existing item or 'item_name' for a new one, but not both.")
-        return data
+        """Calculate total amount by summing all items' (quantity * unit_price)"""
+        total = sum(item.quantity * item.unit_price for item in obj.items.all())
+        return float(total)
 
     def create(self, validated_data):
-        item_id = validated_data.pop('item_id', None)
-        item_name = validated_data.pop('item_name', None)
-        category_id = validated_data.pop('category_id', None)
+        request = self.context['request']
+        procurement = Procurement.objects.create(**validated_data)
 
-        # The rest of the validated_data is for the procurement record
-        # But we need quantity and unit_price for item creation as well
-        quantity = validated_data['quantity']
-        unit_price = validated_data['unit_price']
+        raw_items = request.data.get('items')
+        if not raw_items:
+            raise serializers.ValidationError({"items": "This field is required."})
 
-        with transaction.atomic():
-            if item_id:
-                try:
-                    item = Item.objects.get(id=item_id)
-                    item.quantity += quantity
-                    item.save(update_fields=['quantity'])
-                except Item.DoesNotExist:
-                    raise serializers.ValidationError({'item_id': f'Item with id {item_id} does not exist.'})
-            else:  # New item
-                try:
-                    category = Category.objects.get(id=category_id)
-                except Category.DoesNotExist:
-                    raise serializers.ValidationError({'category_id': f'Category with id {category_id} does not exist.'})
+        try:
+            items_data = json.loads(raw_items)
+        except json.JSONDecodeError:
+            raise serializers.ValidationError({"items": "Invalid JSON format."})
 
-                item, created = Item.objects.get_or_create(
-                    name__iexact=item_name,
+        for item_entry in items_data:
+            if 'item' in item_entry:
+                item = Item.objects.get(pk=item_entry['item'])
+            elif 'item_data' in item_entry:
+                item_data = item_entry['item_data']
+                item, _ = Item.objects.get_or_create(
+                    name=item_data['name'],
                     defaults={
-                        'name': item_name,
-                        'category': category,
-                        'quantity': quantity,
-                        'unit_price': unit_price
+                        'category_id': item_data['category'],
+                        'unit_price': item_data['unit_price'],
+                        'quantity': 0
                     }
                 )
-                if not created:
-                    item.quantity += quantity
-                    item.save(update_fields=['quantity'])
+            else:
+                raise serializers.ValidationError({"items": "Each item must include 'item' or 'item_data'."})
 
-            # Add item to the data for procurement creation
-            validated_data['item'] = item
-            procurement = Procurement.objects.create(**validated_data)
-            
+            ProcurementItem.objects.create(
+                procurement=procurement,
+                item=item,
+                quantity=item_entry['quantity'],
+                unit_price=item_entry['unit_price']
+            )
+            # Update item quantity in stock
+            item.quantity += item_entry['quantity']
+            item.save(update_fields=["quantity"])
+
         return procurement
