@@ -2,74 +2,33 @@ import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import AddDiscardedItemForm from "../components/AddDiscardedItemForm";
+import { discardedItemsAPI } from "../services/api";
 
 const DiscardedItems = () => {
   const [discardedItems, setDiscardedItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
+  const fetchDiscardedItems = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await discardedItemsAPI.getAll();
+      setDiscardedItems(data);
+    } catch (err) {
+      console.error('Failed to fetch discarded items:', err);
+      setError('Failed to load discarded items. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchDiscardedItems = async () => {
-      try {
-        setLoading(true);
-        // Mock data with corrected reasons
-        const mockData = [
-          {
-            id: 1,
-            item: "Laptop",
-            quantity: 2,
-            date: "Aug 10, 2023",
-            reason: "Damaged",
-            discardedBy: "John Smith",
-            procurementId: 1,
-            notes: "Water damage from roof leak"
-          },
-          {
-            id: 2,
-            item: "Mouse",
-            quantity: 5,
-            date: "Aug 15, 2023",
-            reason: "Obsolete",
-            discardedBy: "Emily Davis",
-            procurementId: 2
-          },
-          {
-            id: 3,
-            item: "Notebook",
-            quantity: 20,
-            date: "Aug 20, 2023",
-            reason: "Expired",
-            discardedBy: "Sarah Johnson",
-            procurementId: 3
-          },
-          {
-            id: 4,
-            item: "Monitor",
-            quantity: 3,
-            date: "Aug 25, 2023",
-            reason: "Damaged",
-            discardedBy: "Michael Brown",
-            procurementId: 4
-          },
-          {
-            id: 5,
-            item: "Keyboard",
-            quantity: 8,
-            date: "Sep 1, 2023",
-            reason: "Other",
-            discardedBy: "Robert Wilson",
-            procurementId: 5
-          }
-        ];
-        setDiscardedItems(mockData);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchDiscardedItems();
   }, []);
 
@@ -81,13 +40,43 @@ const DiscardedItems = () => {
   );
 
   const handleRefresh = () => {
-    console.log("Refreshing discarded items...");
-    // In a real app, you would refetch data here
+    fetchDiscardedItems();
   };
 
   const handleViewDetails = (item) => {
     setSelectedItem(item);
     setShowDetails(true);
+  };
+
+  const handleSubmitDiscardedItem = async (formData) => {
+    try {
+      // Transform form data to match API format
+      const apiData = {
+        item_id: parseInt(formData.item),
+        quantity: parseInt(formData.quantity),
+        reason: formData.reason,
+        discarded_by_id: parseInt(formData.discardedBy),
+        notes: formData.notes || '',
+      };
+
+      await discardedItemsAPI.create(apiData);
+      setShowForm(false);
+      // Refresh the list
+      fetchDiscardedItems();
+    } catch (err) {
+      console.error('Failed to create discarded item:', err);
+      alert('Failed to create discarded item. Please try again.');
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
   };
 
   return (
@@ -99,8 +88,8 @@ const DiscardedItems = () => {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h2 className="text-xl font-bold mb-2">Discarded Items</h2>
-                <h3 className="text-lg font-semibold text-gray-600">
+                
+              <h3 className="text-lg font-semibold">
                   Manage and track discarded inventory
                 </h3>
               </div>
@@ -122,6 +111,13 @@ const DiscardedItems = () => {
               </div>
             </div>
 
+            {/* Error Message */}
+            {error && (
+              <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                {error}
+              </div>
+            )}
+
             {/* Discarded Items Table */}
             {loading ? (
               <div className="text-center py-8">Loading discarded items...</div>
@@ -141,51 +137,61 @@ const DiscardedItems = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {paginatedItems.map((item) => (
-                        <tr key={item.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.id}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.item}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.quantity}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.date}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.reason}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.discardedBy}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <button 
-                              onClick={() => handleViewDetails(item)}
-                              className="text-xs text-gray-600 hover:text-blue-600 border border-gray-300 rounded px-2 py-1 hover:border-blue-400 transition-colors"
-  >
-    View
-                            </button>
+                      {paginatedItems.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                            No discarded items found
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        paginatedItems.map((item) => (
+                          <tr key={item.id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.id}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.item?.name || 'N/A'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.quantity}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(item.date)}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.reason}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.discarded_by?.name || 'N/A'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <button 
+                                onClick={() => handleViewDetails(item)}
+                                className="text-xs text-gray-600 hover:text-blue-600 border border-gray-300 rounded px-2 py-1 hover:border-blue-400 transition-colors"
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
 
                 {/* Pagination Controls */}
-                <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
-                  <div className="text-sm text-gray-600">
-                    Showing 1 to {discardedItems.length} of {discardedItems.length} items
+                {discardedItems.length > 0 && (
+                  <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
+                    <div className="text-sm text-gray-600">
+                      Showing {((currentPage - 1) * rowsPerPage) + 1} to {Math.min(currentPage * rowsPerPage, discardedItems.length)} of {discardedItems.length} items
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">Rows per page:</span>
+                      <select
+                        value={rowsPerPage}
+                        onChange={(e) => {
+                          setRowsPerPage(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="border rounded px-3 py-1 text-sm"
+                      >
+                        {[5, 10, 20, 50].map((num) => (
+                          <option key={num} value={num}>
+                            {num}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">Rows per page:</span>
-                    <select
-                      value={rowsPerPage}
-                      onChange={(e) => {
-                        setRowsPerPage(Number(e.target.value));
-                        setCurrentPage(1);
-                      }}
-                      className="border rounded px-3 py-1 text-sm"
-                    >
-                      {[5, 10, 20, 50].map((num) => (
-                        <option key={num} value={num}>
-                          {num}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+                )}
               </>
             )}
           </div>
@@ -196,10 +202,7 @@ const DiscardedItems = () => {
       {showForm && (
         <AddDiscardedItemForm 
           onClose={() => setShowForm(false)} 
-          onSubmit={(data) => {
-            console.log("New discarded item:", data);
-            setShowForm(false);
-          }} 
+          onSubmit={handleSubmitDiscardedItem} 
         />
       )}
 
@@ -227,23 +230,23 @@ const DiscardedItems = () => {
                       <td className="font-medium py-2">ID</td>
                       <td className="py-2">Discard ID {selectedItem.id}</td>
                       <td className="font-medium py-2">Item</td>
-                      <td className="py-2">{selectedItem.item}</td>
+                      <td className="py-2">{selectedItem.item?.name || 'N/A'}</td>
                     </tr>
                     <tr>
                       <td className="font-medium py-2">Quantity</td>
                       <td className="py-2">{selectedItem.quantity}</td>
                       <td className="font-medium py-2">Date</td>
-                      <td className="py-2">{selectedItem.date}</td>
+                      <td className="py-2">{formatDate(selectedItem.date)}</td>
                     </tr>
                     <tr>
                       <td className="font-medium py-2">Reason</td>
                       <td className="py-2">{selectedItem.reason}</td>
-                      <td className="font-medium py-2">Procurement ID</td>
-                      <td className="py-2">{selectedItem.procurementId}</td>
+                      <td className="font-medium py-2">Category</td>
+                      <td className="py-2">{selectedItem.item?.category?.name || 'N/A'}</td>
                     </tr>
                     <tr>
                       <td className="font-medium py-2">Discarded By</td>
-                      <td className="py-2" colSpan="3">{selectedItem.discardedBy}</td>
+                      <td className="py-2" colSpan="3">{selectedItem.discarded_by?.name || 'N/A'}</td>
                     </tr>
                     {selectedItem.notes && (
                       <tr>
@@ -256,13 +259,15 @@ const DiscardedItems = () => {
               </div>
             </div>
             
-            <div className="p-4 border-t bg-white sticky bottom-0">
-              <button
-                onClick={() => setShowDetails(false)}
-                className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
-              >
-                Close
-              </button>
+            <div className="p-4 border-t bg-white">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowDetails(false)}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

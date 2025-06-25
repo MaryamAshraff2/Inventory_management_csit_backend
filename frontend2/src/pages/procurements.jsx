@@ -135,7 +135,7 @@ const ProcurementPage = () => {
         <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-6">
-              <h1 className="text-2xl font-semibold text-gray-800">
+              <h1 className="text-lg font-semibold">
                 Manage and track all procurement orders
               </h1>
               <button

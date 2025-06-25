@@ -1,7 +1,10 @@
 from rest_framework import serializers
 from django.db import transaction
 import json
-from .models import  User, Department, Category, Item, Procurement, Location, ProcurementItem
+from .models import (
+    User, Department, Category, Item, Procurement, Location, ProcurementItem,
+    StockMovement, SendingStockRequest, DiscardedItem, Report
+)
 
 class LocationSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source='department.name', read_only=True)
@@ -113,3 +116,75 @@ class ProcurementSerializer(serializers.ModelSerializer):
             item.save(update_fields=["quantity"])
 
         return procurement
+
+class StockMovementSerializer(serializers.ModelSerializer):
+    item = ItemSerializer(read_only=True)
+    item_id = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all(), source='item', write_only=True)
+    from_location = LocationSerializer(read_only=True)
+    from_location_id = serializers.PrimaryKeyRelatedField(queryset=Location.objects.all(), source='from_location', write_only=True)
+    to_location = LocationSerializer(read_only=True)
+    to_location_id = serializers.PrimaryKeyRelatedField(queryset=Location.objects.all(), source='to_location', write_only=True)
+    received_by = UserSerializer(read_only=True)
+    received_by_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='received_by', write_only=True)
+    
+    # Additional fields for dashboard
+    item_name = serializers.CharField(source='item.name', read_only=True)
+    from_location_name = serializers.CharField(source='from_location.name', read_only=True)
+    to_location_name = serializers.CharField(source='to_location.name', read_only=True)
+    received_by_name = serializers.CharField(source='received_by.name', read_only=True)
+
+    class Meta:
+        model = StockMovement
+        fields = [
+            'id', 'item', 'item_id', 'from_location', 'from_location_id',
+            'to_location', 'to_location_id', 'quantity', 'movement_date',
+            'received_by', 'received_by_id', 'notes',
+            'item_name', 'from_location_name', 'to_location_name', 'received_by_name'
+        ]
+        read_only_fields = ['id', 'item', 'from_location', 'to_location', 'received_by', 'movement_date']
+
+class SendingStockRequestSerializer(serializers.ModelSerializer):
+    item = ItemSerializer(read_only=True)
+    item_id = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all(), source='item', write_only=True)
+    requested_by = serializers.StringRelatedField(read_only=True)
+    
+    # Additional fields for dashboard
+    item_name = serializers.CharField(source='item.name', read_only=True)
+    requested_by_name = serializers.CharField(source='requested_by', read_only=True)
+
+    class Meta:
+        model = SendingStockRequest
+        fields = '__all__'
+
+class DiscardedItemSerializer(serializers.ModelSerializer):
+    item = ItemSerializer(read_only=True)
+    item_id = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all(), source='item', write_only=True)
+    discarded_by = UserSerializer(read_only=True)
+    discarded_by_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='discarded_by', write_only=True, required=False, allow_null=True)
+    date = serializers.DateField(read_only=True)
+
+    class Meta:
+        model = DiscardedItem
+        fields = [
+            'id', 'item', 'item_id', 'quantity', 'date', 'reason', 
+            'discarded_by', 'discarded_by_id', 'notes'
+        ]
+        read_only_fields = ['id', 'date']
+
+class ReportSerializer(serializers.ModelSerializer):
+    generated_by_name = serializers.CharField(source='generated_by.name', read_only=True)
+    generated_by = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), 
+        source='generated_by', 
+        write_only=True, 
+        required=False, 
+        allow_null=True
+    )
+    
+    class Meta:
+        model = Report
+        fields = [
+            'id', 'report_type', 'filters', 'generated_at', 
+            'generated_by', 'generated_by_name', 'export_pdf', 'export_excel'
+        ]
+        read_only_fields = ['id', 'generated_at', 'export_pdf', 'export_excel']

@@ -9,6 +9,10 @@ import Procurements from "./pages/procurements";
 import DiscardedItems from "./pages/discardeditems";
 import Loginpage from "./pages/loginpage";
 import Inventory from "./pages/Inventory";
+import StockMovement from './pages/StockMovement';
+import SendingStockRequest from './UserView/SendingStockReq';
+import StockRequestsManagement from './pages/StockRequest';
+import Reports from "./pages/Reports";
 
 function App() {
   const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
@@ -31,6 +35,10 @@ function App() {
           <Route path="/procurements" element={<Procurements />} />
           <Route path="/discardeditems" element={<DiscardedItems />} />
           <Route path="/inventory" element={<Inventory/>} />
+          <Route path="/stock-movements" element={<StockMovement />} />
+          <Route path="/sending-stock-requests" element={<SendingStockRequest />} />
+          <Route path="/stock-requests" element={<StockRequestsManagement />} />
+          <Route path="/reports" element={<Reports />} />
         </Routes>
       </div>
     </Router>
