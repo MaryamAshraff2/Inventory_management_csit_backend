@@ -1,26 +1,13 @@
 import { useState, useEffect } from 'react';
 import { FiX } from 'react-icons/fi';
-import axios from 'axios';
 
-const API_BASE = 'http://localhost:8000/inventory'; // Change if your backend runs elsewhere
-
-const AddUserForm = ({ user, onClose, onSubmit }) => {
-  const [departments, setDepartments] = useState([]);
+const AddUserForm = ({ user, onClose, onSubmit, departments = [], roles = [] }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    role: 'User',
-    department: ''
+    role: roles[0] || 'User',
+    department: departments[0]?.id || ''
   });
-
-  useEffect(() => {
-    axios.get(`${API_BASE}/departments/`).then(res => {
-      setDepartments(res.data);
-      if (!user && res.data.length > 0) {
-        setFormData(prev => ({ ...prev, department: res.data[0].id }));
-      }
-    });
-  }, []);
 
   useEffect(() => {
     if (user) {
@@ -30,8 +17,10 @@ const AddUserForm = ({ user, onClose, onSubmit }) => {
         role: user.role,
         department: user.department?.id || user.department
       });
+    } else if (departments.length > 0) {
+      setFormData(prev => ({ ...prev, department: departments[0].id }));
     }
-  }, [user]);
+  }, [user, departments]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -43,19 +32,7 @@ const AddUserForm = ({ user, onClose, onSubmit }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (user) {
-      axios.patch(`${API_BASE}/users/${user.id}/`, formData)
-        .then(res => {
-          if (onSubmit) onSubmit(res.data);
-          if (onClose) onClose();
-        });
-    } else {
-      axios.post(`${API_BASE}/users/`, formData)
-        .then(res => {
-          if (onSubmit) onSubmit(res.data);
-          if (onClose) onClose();
-        });
-    }
+    if (onSubmit) onSubmit(formData);
   };
 
   return (
@@ -115,8 +92,9 @@ const AddUserForm = ({ user, onClose, onSubmit }) => {
                 value={formData.role}
                 onChange={handleChange}
               >
-                <option value="User">User</option>
-                <option value="Admin">Admin</option>
+                {roles.map(role => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
               </select>
             </div>
 

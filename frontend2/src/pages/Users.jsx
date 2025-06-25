@@ -23,7 +23,9 @@ const Users = () => {
     setLoading(true);
     axios.get(`${API_BASE}/users/`)
       .then(res => {
-        setUsers(res.data);
+        // Sort users by ID to ensure consistent ordering
+        const sortedUsers = res.data.sort((a, b) => a.id - b.id);
+        setUsers(sortedUsers);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -52,21 +54,23 @@ const Users = () => {
     setShowForm(true);
   };
 
-  const handleFormSubmit = (newUser) => {
+  const handleFormSubmit = (formData) => {
     if (editingUser) {
-      axios.patch(`${API_BASE}/users/${editingUser.id}/`, newUser)
+      axios.patch(`${API_BASE}/users/${editingUser.id}/`, formData)
         .then(() => {
           fetchUsers();
           setShowForm(false);
           setEditingUser(null);
-        });
+        })
+        .catch(() => setShowForm(false));
     } else {
-      axios.post(`${API_BASE}/users/`, newUser)
+      axios.post(`${API_BASE}/users/`, formData)
         .then(() => {
           fetchUsers();
           setShowForm(false);
           setEditingUser(null);
-        });
+        })
+        .catch(() => setShowForm(false));
     }
   };
 
@@ -88,9 +92,9 @@ const Users = () => {
         } else if (filterCategory === 'email') {
           return user.email.toLowerCase().includes(searchLower);
         } else if (filterCategory === 'department') {
-          // department can be object or string
-          const dept = user.department?.name || user.department;
-          return dept?.toLowerCase().includes(searchLower);
+          // department is always an object from API
+          const deptName = user.department_name || '';
+          return deptName.toLowerCase().includes(searchLower);
         } else if (filterCategory === 'role') {
           return user.role.toLowerCase().includes(searchLower);
         }
@@ -239,16 +243,16 @@ const Users = () => {
               </>
             )}
 
-            {(showForm || editingUser) && (
+            {showForm && (
               <AddUserForm
                 user={editingUser}
-                departments={departments}
-                roles={roles}
                 onClose={() => {
                   setShowForm(false);
                   setEditingUser(null);
                 }}
                 onSubmit={handleFormSubmit}
+                departments={departments}
+                roles={roles}
               />
             )}
           </div>

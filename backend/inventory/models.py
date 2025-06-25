@@ -40,13 +40,26 @@ class Item(models.Model):
 
 
 class Procurement(models.Model):
-    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='procurements')
-    quantity = models.PositiveIntegerField()
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    PROCUREMENT_TYPE_CHOICES = [
+        ('Purchase', 'Purchase'),
+        ('Donation', 'Donation'),
+        ('Transfer', 'Transfer'),
+    ]
+    
+    DOCUMENT_TYPE_CHOICES = [
+        ('Purchase Order', 'Purchase Order'),
+        ('MOU (Email)', 'MOU (Email)'),
+        ('Internal Memo', 'Internal Memo'),
+        ('Donation Letter', 'Donation Letter'),
+        ('Invoice', 'Invoice'),
+    ]
+    
     created_at = models.DateTimeField(auto_now_add=True)
     order_number = models.CharField(max_length=20, unique=True, blank=True)
     supplier = models.CharField(max_length=255, null=True, blank=True)
     document = models.FileField(upload_to='procurement_documents/', blank=True, null=True)
+    document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPE_CHOICES, blank=True, null=True)
+    procurement_type = models.CharField(max_length=20, choices=PROCUREMENT_TYPE_CHOICES, blank=True, null=True)
     order_date = models.DateField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
@@ -57,7 +70,17 @@ class Procurement(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f'{self.order_number} - {self.quantity} of {self.item.name}'
+        return f'{self.order_number}'
+
+
+class ProcurementItem(models.Model):
+    procurement = models.ForeignKey(Procurement, on_delete=models.CASCADE, related_name='items')
+    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.quantity} x {self.item.name} for {self.procurement.order_number}"
 
 
 class Location(models.Model):
