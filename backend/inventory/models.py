@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Sum
 
 class User(models.Model):
     name = models.CharField(max_length=100)
@@ -34,13 +35,18 @@ class Category(models.Model):
 class Item(models.Model):
     name = models.CharField(max_length=100, unique=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='items')
-    total_quantity = models.PositiveIntegerField(default=0)
-    available_quantity = models.PositiveIntegerField(default=0)
-    dead_stock_quantity = models.PositiveIntegerField(default=0)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
 
+    @property
+    def main_store_quantity(self):
+        return InventoryByLocation.get_main_store_inventory(self).quantity
+
+    @property
+    def total_quantity(self):
+        return self.inventory_by_location.aggregate(total=Sum('quantity'))['total'] or 0
+
     def __str__(self):
-        return f"{self.name} (Total: {self.total_quantity}, Available: {self.available_quantity}, Dead: {self.dead_stock_quantity})"
+        return f"{self.name} (Main Store: {self.main_store_quantity})"
 
 
 class Procurement(models.Model):
@@ -151,14 +157,7 @@ class DiscardedItem(models.Model):
         return f"{self.quantity} x {self.item.name} discarded at {self.location.name} on {self.date} ({self.reason})"
     
     def save(self, *args, **kwargs):
-        if not self.pk:  # Only for new instances
-            self.item.total_quantity -= self.quantity
-            self.item.dead_stock_quantity += self.quantity
-            # Only update available_quantity if discarding from Main Store
-            from_location = getattr(self, 'from_location', None)
-            if from_location and from_location.name == 'Main Store':
-                self.item.available_quantity = max(0, self.item.available_quantity - self.quantity)
-            self.item.save()
+        # No more updates to Item fields; inventory is handled by InventoryByLocation and DiscardedItem
         super().save(*args, **kwargs)
 
 
@@ -190,3 +189,54 @@ class TotalInventory(models.Model):
 
     def __str__(self):
         return f"{self.item.name} ({self.order_number}) at {self.location.name}: {self.available_quantity}"
+
+
+class InventoryByLocation(models.Model):
+    """
+    Tracks item quantities per location to replace the flawed global available_quantity field.
+    This ensures discarded items only affect inventory at their specific location.
+    """
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='inventory_by_location')
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='inventory_by_location')
+    quantity = models.PositiveIntegerField(default=0)
+    last_updated = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = [['item', 'location']]
+        verbose_name = "Inventory by Location"
+        verbose_name_plural = "Inventory by Locations"
+
+    def __str__(self):
+        return f"{self.item.name} at {self.location.name}: {self.quantity}"
+
+    @classmethod
+    def get_or_create_inventory(cls, item, location):
+        inventory, created = cls.objects.get_or_create(
+            item=item,
+            location=location,
+            defaults={'quantity': 0}
+        )
+        return inventory
+
+    @classmethod
+    def get_available_quantity(cls, item, location):
+        try:
+            inventory = cls.objects.get(item=item, location=location)
+            return inventory.quantity
+        except cls.DoesNotExist:
+            return 0
+
+    @classmethod
+    def get_main_store_inventory(cls, item):
+        main_store = Location.get_main_store()
+        return cls.get_or_create_inventory(item, main_store)
+
+    def add_quantity(self, quantity):
+        self.quantity += quantity
+        self.save(update_fields=['quantity', 'last_updated'])
+
+    def remove_quantity(self, quantity):
+        if self.quantity < quantity:
+            raise ValueError(f"Not enough quantity available. Available: {self.quantity}, Requested: {quantity}")
+        self.quantity -= quantity
+        self.save(update_fields=['quantity', 'last_updated'])

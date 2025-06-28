@@ -3,7 +3,7 @@ from django.db import transaction
 import json
 from .models import (
     User, Department, Category, Item, Procurement, Location, ProcurementItem,
-    StockMovement, SendingStockRequest, DiscardedItem, Report, TotalInventory
+    StockMovement, SendingStockRequest, DiscardedItem, Report, TotalInventory, InventoryByLocation
 )
 import logging
 
@@ -45,10 +45,18 @@ class ItemSerializer(serializers.ModelSerializer):
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(), source='category', write_only=True
     )
+    main_store_quantity = serializers.SerializerMethodField(read_only=True)
+    total_quantity = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Item
-        fields = ['id', 'name', 'total_quantity', 'available_quantity', 'dead_stock_quantity', 'unit_price', 'category', 'category_id']
+        fields = ['id', 'name', 'unit_price', 'category', 'category_id', 'main_store_quantity', 'total_quantity']
+
+    def get_main_store_quantity(self, obj):
+        return obj.main_store_quantity
+
+    def get_total_quantity(self, obj):
+        return obj.total_quantity
 
 class ProcurementItemSerializer(serializers.ModelSerializer):
     item_name = serializers.CharField(source='item.name', read_only=True)
@@ -95,47 +103,61 @@ class ProcurementSerializer(serializers.ModelSerializer):
             logger.error(f"Invalid JSON format for items: {raw_items}")
             raise serializers.ValidationError({"items": "Invalid JSON format."})
 
-        from .models import TotalInventory, Location
-        main_store = Location.get_main_store()
-
         for idx, item_entry in enumerate(items_data):
             try:
-                logger.debug(f"Processing item {idx+1}: {item_entry}")
+                logger.debug(f"Processing item {idx + 1}: {item_entry}")
+
                 if 'item' in item_entry:
+                    # Existing item reference
                     item = Item.objects.get(pk=item_entry['item'])
                 elif 'item_data' in item_entry:
+                    # New item to be created
                     item_data = item_entry['item_data']
-                    item, _ = Item.objects.get_or_create(
+                    logger.debug(f"Creating new item: {item_data}")
+
+                    # Ensure category exists
+                    try:
+                        category = Category.objects.get(id=item_data['category'])
+                    except Category.DoesNotExist:
+                        logger.error(f"Category with id {item_data['category']} does not exist.")
+                        raise serializers.ValidationError({"items": f"Category with id {item_data['category']} does not exist."})
+
+                    item, created = Item.objects.get_or_create(
                         name=item_data['name'],
                         defaults={
-                            'category_id': item_data['category'],
+                            'category': category,
                             'unit_price': item_data['unit_price'],
-                            'total_quantity': 0,
-                            'available_quantity': 0,
-                            'dead_stock_quantity': 0,
                         }
                     )
+
+                    if not item.pk:
+                        logger.error(f"Item creation failed: {item_data}")
+                        raise serializers.ValidationError({"items": f"Failed to create item: {item_data['name']}"})
+
+                    if created:
+                        logger.info(f"Item created: {item.name} (ID: {item.id})")
+                    else:
+                        logger.warning(f"Item already exists: {item.name} (ID: {item.id})")
                 else:
                     logger.error(f"Invalid item entry: {item_entry}")
                     raise serializers.ValidationError({"items": "Each item must include 'item' or 'item_data'."})
 
+                # Create ProcurementItem
                 ProcurementItem.objects.create(
                     procurement=procurement,
                     item=item,
                     quantity=item_entry['quantity'],
                     unit_price=item_entry['unit_price']
                 )
-                # Update item total_quantity and available_quantity in stock
-                logger.debug(f"Incrementing item {item.id} ({item.name}) total_quantity and available_quantity by {item_entry['quantity']} (before: {item.total_quantity}, {item.available_quantity})")
-                item.total_quantity += item_entry['quantity']
-                item.available_quantity += item_entry['quantity']
-                item.save(update_fields=["total_quantity", "available_quantity"])
-                logger.debug(f"Item {item.id} ({item.name}) new total_quantity: {item.total_quantity}, available_quantity: {item.available_quantity}")
-                # TotalInventory creation is handled by the sync command triggered by ProcurementItem creation
-                logger.debug(f"Processed item {item.id} ({item.name}) in procurement {procurement.id}")
+
+                # Update inventory in main store only
+                main_inventory = InventoryByLocation.get_main_store_inventory(item)
+                main_inventory.add_quantity(item_entry['quantity'])
+
             except Exception as e:
-                logger.error(f"Error processing item {item_entry}: {e}")
-                raise serializers.ValidationError({"items": f"Error processing item {item_entry}: {e}"})
+                logger.error(f"Error processing item entry {item_entry}: {e}", exc_info=True)
+                raise serializers.ValidationError({"items": f"Error processing item {item_entry}: {str(e)}"})
+
         return procurement
 
 class StockMovementSerializer(serializers.ModelSerializer):
@@ -165,7 +187,7 @@ class StockMovementSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'item', 'from_location', 'to_location', 'received_by', 'movement_date']
 
     def create(self, validated_data):
-        from .models import TotalInventory
+        from .models import TotalInventory, InventoryByLocation
         from django.db import transaction
         print(f"[DEBUG] StockMovement create called with validated_data: {validated_data}")
         with transaction.atomic():
@@ -175,74 +197,45 @@ class StockMovementSerializer(serializers.ModelSerializer):
             from_location = stock_movement.from_location
             to_location = stock_movement.to_location
             quantity = stock_movement.quantity
+            # Update location inventories
+            from_inventory = InventoryByLocation.get_or_create_inventory(item, from_location)
+            to_inventory = InventoryByLocation.get_or_create_inventory(item, to_location)
+            from_inventory.remove_quantity(quantity)
+            to_inventory.add_quantity(quantity)
+
+            # --- Update TotalInventory (FIFO logic) ---
             qty_to_move = quantity
-
-            # Fetch all inventory rows for this item at the source location with available stock (FIFO)
-            source_inventory = TotalInventory.objects.filter(
-                item=item,
-                location=from_location,
-                available_quantity__gt=0
-            ).order_by('order_date', 'id')
-
-            total_available = sum(row.available_quantity for row in source_inventory)
-            if total_available < qty_to_move:
-                raise serializers.ValidationError('Not enough quantity at source location.')
-
-            print(f"[DEBUG] Checking stock for item {item} at location {from_location}")
-            print("TotalInventory at source:")
-            for row in source_inventory:
-                print(f"  - Qty: {row.available_quantity}, Procurement: {row.procurement}, Order#: {row.order_number}")
-
-            for row in source_inventory:
+            # Decrement from from_location (FIFO by procurement)
+            from_batches = list(TotalInventory.objects.filter(item=item, location=from_location, available_quantity__gt=0).order_by('order_date', 'id'))
+            batch_movements = []  # (batch, qty_moved)
+            for batch in from_batches:
                 if qty_to_move <= 0:
                     break
-                deduct_qty = min(qty_to_move, row.available_quantity)
-                row.available_quantity -= deduct_qty
-                qty_to_move -= deduct_qty
-
-                # Match destination inventory by item and location (and optionally order_number), not procurement
-                dest_ti = TotalInventory.objects.filter(
-                    item=row.item,
-                    location=to_location
-                ).first()
-                if dest_ti:
-                    dest_ti.available_quantity += deduct_qty
-                    dest_ti.last_stock_movement = stock_movement
-                    dest_ti.save()
-                else:
-                    # Ensure no None values for required fields
-                    TotalInventory.objects.create(
-                        item=row.item,
-                        procurement=row.procurement,
-                        location=to_location,
-                        available_quantity=deduct_qty,
-                        order_number=row.order_number or '',
-                        supplier=row.supplier or '',
-                        order_date=row.order_date,
-                        unit_price=row.unit_price if row.unit_price is not None else 0,
-                        last_stock_movement=stock_movement
-                    )
-                print(f"[DEBUG] Moving {deduct_qty} from {from_location} to {to_location}. Destination TI: {dest_ti}")
-
-                if row.available_quantity == 0:
-                    row.delete()
-                else:
-                    row.save()
-
-            # If moving from Main Store, also update item.available_quantity for audit
-            if from_location.name == 'Main Store':
-                print(f"[DEBUG] Moving FROM Main Store. Item available_quantity before: {item.available_quantity}")
-                item.available_quantity = max(0, item.available_quantity - quantity)
-                item.save(update_fields=["available_quantity"])
-                print(f"[DEBUG] Item available_quantity after FROM Main Store: {item.available_quantity}")
-
-            # If moving TO Main Store, increase item.available_quantity
-            if to_location.name == 'Main Store':
-                print(f"[DEBUG] Moving TO Main Store. Item available_quantity before: {item.available_quantity}")
-                item.available_quantity = item.available_quantity + quantity
-                item.save(update_fields=["available_quantity"])
-                print(f"[DEBUG] Item available_quantity after TO Main Store: {item.available_quantity}")
-
+                move_qty = min(batch.available_quantity, qty_to_move)
+                batch.available_quantity -= move_qty
+                batch.last_stock_movement = stock_movement
+                batch.save(update_fields=['available_quantity', 'last_stock_movement'])
+                batch_movements.append((batch, move_qty))
+                qty_to_move -= move_qty
+            if qty_to_move > 0:
+                raise serializers.ValidationError(f"Not enough stock in TotalInventory at {from_location.name} for {item.name}")
+            # Increment at to_location, preserving procurement info
+            for batch, moved_qty in batch_movements:
+                to_batch, _ = TotalInventory.objects.get_or_create(
+                    item=item,
+                    procurement=batch.procurement,
+                    location=to_location,
+                    defaults={
+                        'available_quantity': 0,
+                        'order_number': batch.order_number,
+                        'supplier': batch.supplier,
+                        'order_date': batch.order_date,
+                        'unit_price': batch.unit_price,
+                    }
+                )
+                to_batch.available_quantity += moved_qty
+                to_batch.last_stock_movement = stock_movement
+                to_batch.save(update_fields=['available_quantity', 'last_stock_movement'])
             return stock_movement
 
 class SendingStockRequestSerializer(serializers.ModelSerializer):
@@ -276,34 +269,49 @@ class DiscardedItemSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'date']
 
     def create(self, validated_data):
-        from .models import TotalInventory, Category, Location
+        from .models import TotalInventory, InventoryByLocation
+        import logging
+        logger = logging.getLogger('inventory')
         with transaction.atomic():
             item = validated_data['item']
+            location = validated_data['location']
             quantity = validated_data['quantity']
-            # Find all TotalInventory records for this item
-            total_inventories = TotalInventory.objects.filter(item=item).order_by('-available_quantity')
+
+            # STEP 1: Process batches FIRST (FIFO, lock for update) - STRICTLY SCOPED TO LOCATION
             qty_to_discard = quantity
-            for ti in total_inventories:
+            batches = list(TotalInventory.objects.select_for_update().filter(
+                item=item,
+                location=location,  # CRITICAL: Only this location
+                available_quantity__gt=0
+            ).order_by('order_date', 'id'))
+            updated_batches = []
+            for batch in batches:
                 if qty_to_discard <= 0:
                     break
-                if ti.available_quantity > 0:
-                    remove_qty = min(ti.available_quantity, qty_to_discard)
-                    ti.available_quantity -= remove_qty
-                    qty_to_discard -= remove_qty
-                    if ti.available_quantity == 0:
-                        ti.delete()
-                    else:
-                        ti.save()
+                discard_qty = min(batch.available_quantity, qty_to_discard)
+                batch.available_quantity -= discard_qty
+                qty_to_discard -= discard_qty
+                updated_batches.append(batch)
+            # VERIFY BEFORE UPDATING LOCATION
             if qty_to_discard > 0:
-                raise serializers.ValidationError('Not enough inventory to discard.')
-            # Decrement item total_quantity and increment dead_stock_quantity
-            item.total_quantity -= quantity
-            item.dead_stock_quantity += quantity
-            # If discarding from Main Store, decrement available_quantity
-            from_location = validated_data.get('from_location', None)
-            if from_location and from_location.name == 'Main Store':
-                item.available_quantity = max(0, item.available_quantity - quantity)
-            item.save(update_fields=["total_quantity", "dead_stock_quantity", "available_quantity"])
+                raise serializers.ValidationError(f"Not enough stock in TotalInventory at {location.name} for {item.name} to discard")
+
+            # STEP 2: Now update location inventory (ONLY this location)
+            location_inventory = InventoryByLocation.get_or_create_inventory(item, location)
+            logger.debug(f"Discard: Location {location.name} inventory BEFORE: {location_inventory.quantity}")
+            if location_inventory.quantity < quantity:
+                raise serializers.ValidationError(f"Only {location_inventory.quantity} available at {location.name}")
+            location_inventory.remove_quantity(quantity)
+            logger.debug(f"Discard: Location {location.name} inventory AFTER: {location_inventory.quantity}")
+
+            # STEP 3: Save batch changes (ONLY for this location)
+            for batch in updated_batches:
+                if batch.available_quantity > 0:
+                    batch.save(update_fields=['available_quantity'])
+                else:
+                    batch.delete()
+
+            # STEP 4: Create the discarded item record
             return super().create(validated_data)
 
 class ReportSerializer(serializers.ModelSerializer):

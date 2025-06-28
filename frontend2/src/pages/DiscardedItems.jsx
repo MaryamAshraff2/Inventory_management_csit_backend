@@ -9,10 +9,8 @@ const API_BASE = 'http://localhost:8000/inventory';
 
 const DiscardedItems = () => {
   const [discardedItems, setDiscardedItems] = useState([]);
-  const [procurements, setProcurements] = useState([]);
   const [locations, setLocations] = useState([]);
   const [users, setUsers] = useState([]);
-  const [totalInventory, setTotalInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -27,21 +25,15 @@ const DiscardedItems = () => {
     fetchDropdownData();
   }, []);
 
-  // Fetch dropdown data (procurements, locations, users, total inventory)
+  // Fetch dropdown data (locations, users)
   const fetchDropdownData = async () => {
     try {
-      const [procurementsRes, locationsRes, usersRes] = await Promise.all([
-        axios.get(`${API_BASE}/procurements/`),
+      const [locationsRes, usersRes] = await Promise.all([
         axios.get(`${API_BASE}/locations/`),
         axios.get(`${API_BASE}/users/`)
       ]);
-      setProcurements(procurementsRes.data);
       setLocations(locationsRes.data);
       setUsers(usersRes.data);
-      
-      // Fetch total inventory
-      const inventoryData = await itemsAPI.getTotalInventory();
-      setTotalInventory(inventoryData);
     } catch (error) {
       console.error('Error fetching dropdown data:', error);
     }
@@ -139,6 +131,7 @@ const DiscardedItems = () => {
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ITEM</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LOCATION</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QUANTITY</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DATE</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">REASON</th>
@@ -149,7 +142,7 @@ const DiscardedItems = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {paginatedItems.length === 0 ? (
                         <tr>
-                          <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                          <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
                             No discarded items found
                           </td>
                         </tr>
@@ -158,6 +151,7 @@ const DiscardedItems = () => {
                           <tr key={item.id}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.id}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.item?.name || 'N/A'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.location || 'N/A'}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.quantity}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(item.date)}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.reason}</td>
@@ -220,10 +214,8 @@ const DiscardedItems = () => {
         show={showForm}
         onClose={() => setShowForm(false)} 
         onSubmit={handleSubmitDiscardedItem} 
-        procurements={procurements}
         locations={locations}
         users={users}
-        totalInventory={totalInventory}
       />
 
       {/* Details Modal */}
@@ -255,18 +247,20 @@ const DiscardedItems = () => {
                     <tr>
                       <td className="font-medium py-2">Quantity</td>
                       <td className="py-2">{selectedItem.quantity}</td>
-                      <td className="font-medium py-2">Date</td>
-                      <td className="py-2">{formatDate(selectedItem.date)}</td>
+                      <td className="font-medium py-2">Location</td>
+                      <td className="py-2">{selectedItem.location || 'N/A'}</td>
                     </tr>
                     <tr>
-                      <td className="font-medium py-2">Reason</td>
-                      <td className="py-2">{selectedItem.reason}</td>
+                      <td className="font-medium py-2">Date</td>
+                      <td className="py-2">{formatDate(selectedItem.date)}</td>
                       <td className="font-medium py-2">Category</td>
                       <td className="py-2">{selectedItem.item?.category?.name || 'N/A'}</td>
                     </tr>
                     <tr>
+                      <td className="font-medium py-2">Reason</td>
+                      <td className="py-2">{selectedItem.reason}</td>
                       <td className="font-medium py-2">Discarded By</td>
-                      <td className="py-2" colSpan="3">{selectedItem.discarded_by?.name || 'N/A'}</td>
+                      <td className="py-2">{selectedItem.discarded_by?.name || 'N/A'}</td>
                     </tr>
                     {selectedItem.notes && (
                       <tr>

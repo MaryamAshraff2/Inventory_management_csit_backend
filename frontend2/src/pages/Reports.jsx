@@ -523,6 +523,7 @@ function Reports() {
                     <thead>
                       <tr className="bg-gray-100 text-gray-700 text-sm">
                         <th className="px-4 py-2 border-b">Item Name</th>
+                        <th className="px-4 py-2 border-b">Location</th>
                         <th className="px-4 py-2 border-b">Quantity</th>
                         <th className="px-4 py-2 border-b">Reason</th>
                         <th className="px-4 py-2 border-b">Date</th>
@@ -535,6 +536,7 @@ function Reports() {
                         reportData.data.map((item, index) => (
                           <tr key={index}>
                             <td className="px-4 py-2 border-b">{item.item_name}</td>
+                            <td className="px-4 py-2 border-b">{item.location}</td>
                             <td className="px-4 py-2 border-b">{item.quantity}</td>
                             <td className="px-4 py-2 border-b">
                               <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">
@@ -548,7 +550,7 @@ function Reports() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="6" className="px-4 py-4 text-center text-gray-500">
+                          <td colSpan="7" className="px-4 py-4 text-center text-gray-500">
                             No discarded items data found for the selected filters
                           </td>
                         </tr>

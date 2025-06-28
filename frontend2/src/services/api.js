@@ -133,6 +133,7 @@ export const itemsAPI = {
   getById: (id) => apiRequest(`/items/${id}/`),
   getTotalInventory: () => apiRequest('/items/total_inventory/'),
   getLocationsWithStock: (itemId) => apiRequest(`/items/locations_with_stock/?item_id=${itemId}`),
+  getItemsAtLocation: (locationId) => apiRequest(`/items/items_at_location/?location_id=${locationId}`),
 };
 
 // Users API (for dropdown)

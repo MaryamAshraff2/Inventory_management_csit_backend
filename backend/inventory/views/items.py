@@ -1,5 +1,5 @@
 from rest_framework import viewsets
-from ..models import Item
+from ..models import Item, InventoryByLocation
 from ..serializers import ItemSerializer, TotalInventoryRowSerializer
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
@@ -35,31 +35,17 @@ class ItemViewSet(viewsets.ModelViewSet):
             item = Item.objects.get(id=item_id)
             locations_with_stock = []
             
-            # Check Main Store (special case)
-            if item.available_quantity > 0:
-                main_store = Location.get_main_store()
-                locations_with_stock.append({
-                    'id': main_store.id,
-                    'name': main_store.name,
-                    'available_quantity': item.available_quantity
-                })
-            
-            # Check other locations using TotalInventory
-            from django.db.models import Sum
-            location_stock = TotalInventory.objects.filter(
+            # Get all locations where this item has inventory using InventoryByLocation
+            location_inventories = InventoryByLocation.objects.filter(
                 item_id=item_id,
-                available_quantity__gt=0
-            ).exclude(
-                location__name='Main Store'  # Exclude Main Store as it's handled above
-            ).values('location__id', 'location__name').annotate(
-                total_available=Sum('available_quantity')
-            )
+                quantity__gt=0
+            ).select_related('location')
             
-            for loc_stock in location_stock:
+            for inventory in location_inventories:
                 locations_with_stock.append({
-                    'id': loc_stock['location__id'],
-                    'name': loc_stock['location__name'],
-                    'available_quantity': loc_stock['total_available']
+                    'id': inventory.location.id,
+                    'name': inventory.location.name,
+                    'quantity': inventory.quantity
                 })
             
             return Response({
@@ -73,6 +59,48 @@ class ItemViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({"error": str(e)}, status=500)
 
+    @action(detail=False, methods=['get'])
+    def items_at_location(self, request):
+        """
+        Returns items available at a specific location.
+        Query parameter: location_id
+        """
+        location_id = request.query_params.get('location_id')
+        
+        if not location_id:
+            return Response({"error": "location_id parameter is required"}, status=400)
+        
+        try:
+            location = Location.objects.get(id=location_id)
+            items_at_location = []
+            
+            # Get items at this location using InventoryByLocation
+            location_inventories = InventoryByLocation.objects.filter(
+                location=location,
+                quantity__gt=0
+            ).select_related('item', 'item__category')
+            
+            for inventory in location_inventories:
+                items_at_location.append({
+                    'item_id': inventory.item.id,
+                    'item_name': inventory.item.name,
+                    'quantity': inventory.quantity,
+                    'location_id': location.id,
+                    'location': location.name,
+                    'category': inventory.item.category.name
+                })
+            
+            return Response({
+                'location_id': location_id,
+                'location_name': location.name,
+                'items': items_at_location
+            })
+            
+        except Location.DoesNotExist:
+            return Response({"error": "Location not found"}, status=404)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
 @api_view(['GET'])
 def get_item_availability(request):
     item_id = request.query_params.get('item_id')
@@ -83,29 +111,14 @@ def get_item_availability(request):
     if not item_id or not location_id:
         return Response({"error": "item_id and location_id are required"}, status=400)
 
-    # Get the location to check if it's Main Store
-    from ..models import Location
     try:
         location = Location.objects.get(id=location_id)
         print(f"Location: {location.name}")
         
-        if location.name == 'Main Store':
-            # For Main Store, get available_quantity from Item table
-            from ..models import Item
-            try:
-                item = Item.objects.get(id=item_id)
-                available_qty = item.available_quantity
-                print(f"Main Store - Item available_quantity: {available_qty}")
-                return Response({"available_quantity": available_qty})
-            except Item.DoesNotExist:
-                return Response({"error": "Item not found"}, status=404)
-        else:
-            # For other locations, use TotalInventory
-            qs = TotalInventory.objects.filter(item_id=item_id, location_id=location_id)
-            print(f"TotalInventory entries: {list(qs.values('id', 'item_id', 'location_id', 'available_quantity'))}")
-            total_available = qs.aggregate(total=Sum('available_quantity'))['total'] or 0
-            print(f"Total available quantity: {total_available}")
-            return Response({"available_quantity": total_available})
+        item = Item.objects.get(id=item_id)
+        available_qty = InventoryByLocation.get_available_quantity(item, location)
+        print(f"Available quantity at {location.name}: {available_qty}")
+        return Response({"quantity": available_qty})
             
-    except Location.DoesNotExist:
-        return Response({"error": "Location not found"}, status=404)
+    except (Location.DoesNotExist, Item.DoesNotExist):
+        return Response({"error": "Item or Location not found"}, status=404)

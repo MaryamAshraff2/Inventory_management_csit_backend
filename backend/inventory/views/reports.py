@@ -643,6 +643,7 @@ class ReportViewSet(viewsets.ModelViewSet):
             for discarded_item in queryset:
                 report_data['data'].append({
                     'item_name': discarded_item.item.name,
+                    'location': discarded_item.location.name,
                     'quantity': discarded_item.quantity,
                     'reason': discarded_item.reason,
                     'date': discarded_item.date,
@@ -869,6 +870,7 @@ class ReportViewSet(viewsets.ModelViewSet):
                 for discarded_item in queryset:
                     report_data['data'].append({
                         'item_name': discarded_item.item.name,
+                        'location': discarded_item.location.name,
                         'quantity': discarded_item.quantity,
                         'reason': discarded_item.reason,
                         'date': discarded_item.date,
@@ -1085,6 +1087,7 @@ class ReportViewSet(viewsets.ModelViewSet):
                 for discarded_item in queryset:
                     report_data['data'].append({
                         'item_name': discarded_item.item.name,
+                        'location': discarded_item.location.name,
                         'quantity': discarded_item.quantity,
                         'reason': discarded_item.reason,
                         'date': discarded_item.date,
