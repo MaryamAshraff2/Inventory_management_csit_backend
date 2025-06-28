@@ -14,7 +14,7 @@ class InventoryConfig(AppConfig):
 
     def ready(self):
         # Import signals when app is ready
-        from . import signals
+        import inventory.signals
 
 
 

@@ -1,151 +1,169 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import { FaTimes } from "react-icons/fa";
-import { itemsAPI, usersAPI } from "../services/api";
+import { itemsAPI, usersAPI, discardedItemsAPI } from "../services/api";
+import axios from 'axios';
 
-const AddDiscardedItemForm = ({ onClose, onSubmit }) => {
+const API_BASE = 'http://localhost:8000/inventory';
+
+const AddDiscardedItemForm = ({ show, onClose, onSubmit }) => {
+  const [procurements, setProcurements] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [totalInventory, setTotalInventory] = useState([]);
+  const [filteredItems, setFilteredItems] = useState([]);
   const [formData, setFormData] = useState({
-    item: "",
-    quantity: "",
-    reason: "",
-    notes: "",
-    discardedBy: ""
+    procurement_id: '',
+    location_id: '',
+    item_id: '',
+    quantity: '',
+    reason: '',
+    notes: '',
   });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
 
-  const [items, setItems] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  const discardReasons = [
-    "Damaged",
-    "Obsolete", 
-    "Expired",
-    "Other"
-  ];
-
-  // Fetch items and users on component mount
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Fetch items and users in parallel
-        const [itemsData, usersData] = await Promise.all([
-          itemsAPI.getAll(),
-          usersAPI.getAll()
-        ]);
-        
-        setItems(itemsData);
-        setUsers(usersData);
-      } catch (err) {
-        console.error('Failed to fetch form data:', err);
-        setError('Failed to load form data. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!show) return;
+    axios.get(`${API_BASE}/procurements/`).then(res => setProcurements(res.data));
+    axios.get(`${API_BASE}/locations/`).then(res => setLocations(res.data));
+    itemsAPI.getTotalInventory().then(setTotalInventory);
+    setFormData({ procurement_id: '', location_id: '', item_id: '', quantity: '', reason: '', notes: '' });
+    setErrors({});
+  }, [show]);
 
-    fetchData();
-  }, []);
+  // Filter items based on selected procurement and location
+  useEffect(() => {
+    if (formData.procurement_id && formData.location_id) {
+      const filtered = totalInventory.filter(
+        row => String(row.location_id) === String(formData.location_id) && String(row.procurement_id) === String(formData.procurement_id)
+      );
+      setFilteredItems(filtered);
+    } else {
+      setFilteredItems([]);
+    }
+  }, [formData.procurement_id, formData.location_id, totalInventory]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value, ...(name === 'procurement_id' ? { item_id: '' } : {}) }));
+    setErrors(prev => ({ ...prev, [name]: undefined }));
   };
 
-  const handleSubmit = (e) => {
+  const validate = () => {
+    const errs = {};
+    if (!formData.procurement_id) errs.procurement_id = 'Procurement is required';
+    if (!formData.location_id) errs.location_id = 'Location is required';
+    if (!formData.item_id) errs.item_id = 'Item is required';
+    if (!formData.quantity || isNaN(formData.quantity) || Number(formData.quantity) <= 0) errs.quantity = 'Enter a valid quantity';
+    if (!formData.reason) errs.reason = 'Reason is required';
+    return errs;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validate form
-    if (!formData.item || !formData.quantity || !formData.reason || !formData.discardedBy) {
-      alert('Please fill in all required fields.');
+    const errs = validate();
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
       return;
     }
-
-    if (parseInt(formData.quantity) <= 0) {
-      alert('Quantity must be greater than 0.');
-      return;
+    setLoading(true);
+    try {
+      await discardedItemsAPI.create(formData);
+      if (onSubmit) onSubmit();
+      if (onClose) onClose();
+    } catch (error) {
+      let backendErrors = {};
+      if (error.response?.data) {
+        if (typeof error.response.data === 'string') {
+          backendErrors.form = error.response.data;
+        } else if (typeof error.response.data === 'object') {
+          Object.entries(error.response.data).forEach(([key, val]) => {
+            backendErrors[key] = Array.isArray(val) ? val.join(' ') : val;
+          });
+        }
+      } else {
+        backendErrors.form = 'Failed to discard item';
+      }
+      setErrors(backendErrors);
+    } finally {
+      setLoading(false);
     }
-
-    onSubmit(formData);
   };
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p>Loading form data...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-          <div className="text-center">
-            <p className="text-red-600 mb-4">{error}</p>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!show) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] flex flex-col">
         <div className="p-6 overflow-y-auto flex-1">
           <div className="flex justify-between items-start mb-4">
-            <h3 className="text-xl font-semibold">Record Discarded Items</h3>
-            <button 
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <FaTimes />
-            </button>
+            <div>
+              <h3 className="text-xl font-semibold">Discard Item</h3>
+              <p className="text-gray-600 text-sm">Record the discarding of an item from a location.</p>
+            </div>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">&times;</button>
           </div>
-          
-          <p className="text-gray-600 mb-6">
-            Record items that have been discarded from inventory.
-          </p>
-          
           <form onSubmit={handleSubmit}>
+            {errors.form && (
+              <div className="mb-4 text-red-600 text-sm text-center font-semibold border border-red-200 bg-red-50 rounded p-2">
+                {errors.form}
+              </div>
+            )}
             <div className="space-y-4">
-              {/* Items Dropdown */}
+              {/* Procurement Dropdown */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Item *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Procurement</label>
                 <select
-                  name="item"
-                  value={formData.item}
+                  name="procurement_id"
+                  value={formData.procurement_id}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
-                  <option value="">Select an item</option>
-                  {items.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} - {item.category?.name} (Qty: {item.quantity})
-                    </option>
+                  <option value="">Select procurement</option>
+                  {procurements.map(proc => (
+                    <option key={proc.id} value={proc.id}>{proc.order_number} ({proc.supplier})</option>
                   ))}
                 </select>
+                {errors.procurement_id && <div className="text-red-500 text-xs mt-1">{errors.procurement_id}</div>}
               </div>
-              
+              {/* Location Dropdown */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <select
+                  name="location_id"
+                  value={formData.location_id}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Select location</option>
+                  {locations.map(loc => (
+                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                  ))}
+                </select>
+                {errors.location_id && <div className="text-red-500 text-xs mt-1">{errors.location_id}</div>}
+              </div>
+              {/* Item Dropdown (filtered) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item</label>
+                <select
+                  name="item_id"
+                  value={formData.item_id}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                  disabled={!formData.procurement_id || !formData.location_id}
+                >
+                  <option value="">Select item</option>
+                  {filteredItems.map(item => (
+                    <option key={item.item_id} value={item.item_id}>{item.item_name}</option>
+                  ))}
+                </select>
+                {errors.item_id && <div className="text-red-500 text-xs mt-1">{errors.item_id}</div>}
+              </div>
+              {/* Quantity Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
                 <input
                   type="number"
                   name="quantity"
@@ -153,13 +171,14 @@ const AddDiscardedItemForm = ({ onClose, onSubmit }) => {
                   onChange={handleChange}
                   placeholder="Enter quantity"
                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
                   min="1"
+                  required
                 />
+                {errors.quantity && <div className="text-red-500 text-xs mt-1">{errors.quantity}</div>}
               </div>
-              
+              {/* Reason Dropdown */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reason *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
                 <select
                   name="reason"
                   value={formData.reason}
@@ -168,63 +187,42 @@ const AddDiscardedItemForm = ({ onClose, onSubmit }) => {
                   required
                 >
                   <option value="">Select reason</option>
-                  {discardReasons.map((reason, index) => (
-                    <option key={index} value={reason}>{reason}</option>
-                  ))}
+                  <option value="Damaged">Damaged</option>
+                  <option value="Obsolete">Obsolete</option>
+                  <option value="Expired">Expired</option>
+                  <option value="Other">Other</option>
                 </select>
+                {errors.reason && <div className="text-red-500 text-xs mt-1">{errors.reason}</div>}
               </div>
-              
+              {/* Notes */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Discarded By *</label>
-                <select
-                  name="discardedBy"
-                  value={formData.discardedBy}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="">Select staff member</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} - {user.department?.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                 <textarea
                   name="notes"
                   value={formData.notes}
                   onChange={handleChange}
-                  placeholder="Enter any additional notes"
                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows="3"
+                  rows={2}
                 />
               </div>
             </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md mr-2 hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+              >
+                {loading ? 'Discarding...' : 'Discard Item'}
+              </button>
+            </div>
           </form>
-        </div>
-
-        <div className="p-4 border-t bg-white sticky bottom-0">
-          <div className="flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              onClick={handleSubmit}
-              disabled={!formData.item || !formData.quantity || !formData.reason || !formData.discardedBy}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Record Discard
-            </button>
-          </div>
         </div>
       </div>
     </div>

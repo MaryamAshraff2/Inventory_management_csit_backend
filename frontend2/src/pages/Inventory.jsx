@@ -3,10 +3,13 @@ import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import InventoryDetails from "../components/InventoryDetails";
 import { FiSearch, FiGrid, FiMapPin, FiChevronDown } from "react-icons/fi";
+import TotalInventoryTable from "../components/TotalInventoryTable";
+import { itemsAPI, discardedItemsAPI } from '../services/api';
 
 const Inventory = () => {
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
   const [filterBy, setFilterBy] = useState("name");
@@ -15,54 +18,17 @@ const Inventory = () => {
   const [activeTab, setActiveTab] = useState("total");
   const [selectedLocation, setSelectedLocation] = useState("");
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [discardedItems, setDiscardedItems] = useState([]);
 
   useEffect(() => {
     const fetchInventory = async () => {
       try {
         setLoading(true);
-        const mockData = [
-          {
-            id: 1,
-            name: "Laptop",
-            quantity: 25,
-            procurementId: "#1",
-            location: "CSIT LAB 1",
-            supplier: "Tech Solutions Inc.",
-            date: "5/15/2023",
-            addedBy: "John Smith",
-          },
-          {
-            id: 2,
-            name: "Office Chair",
-            quantity: 15,
-            procurementId: "#2",
-            location: "Admin Office",
-            supplier: "Furniture World",
-            date: "6/20/2023",
-            addedBy: "Sarah Johnson",
-          },
-          {
-            id: 3,
-            name: "Notebook",
-            quantity: 100,
-            procurementId: "#3",
-            location: "Storage Room",
-            supplier: "Office Supplies Co.",
-            date: "4/5/2023",
-            addedBy: "Michael Brown",
-          },
-          {
-            id: 4,
-            name: "Monitor",
-            quantity: 20,
-            procurementId: "#4",
-            location: "CSIT LAB 2",
-            supplier: "Tech Solutions Inc.",
-            date: "7/10/2023",
-            addedBy: "John Smith",
-          },
-        ];
-        setInventory(mockData);
+        setError(null);
+        const data = await itemsAPI.getTotalInventory();
+        setInventory(data);
+      } catch (err) {
+        setError('Failed to load inventory data.');
       } finally {
         setLoading(false);
       }
@@ -70,8 +36,35 @@ const Inventory = () => {
     fetchInventory();
   }, []);
 
+  useEffect(() => {
+    const fetchDiscarded = async () => {
+      try {
+        const data = await discardedItemsAPI.getAll();
+        setDiscardedItems(data);
+      } catch (err) {
+        // Optionally handle error
+      }
+    };
+    fetchDiscarded();
+  }, []);
+
   // Get unique locations
   const uniqueLocations = [...new Set(inventory.map(item => item.location))];
+
+  // When switching to 'location' tab, default to Lab 1 or first location only if nothing is selected yet
+  useEffect(() => {
+    if (activeTab === "location") {
+      if (!selectedLocation) {
+        const lab1 = uniqueLocations.find(loc => loc.toLowerCase().includes("lab 1"));
+        if (lab1) {
+          setSelectedLocation(lab1);
+        } else if (uniqueLocations.length > 0) {
+          setSelectedLocation(uniqueLocations[0]);
+        }
+      }
+    }
+    // eslint-disable-next-line
+  }, [activeTab]);
 
   // Filter based on search term and selected location
   const filteredInventory = inventory.filter((item) => {
@@ -82,9 +75,9 @@ const Inventory = () => {
     
     // Then filter by search term
     if (filterBy === "name") {
-      return item.name.toLowerCase().includes(searchTerm.toLowerCase());
+      return item.item_name && item.item_name.toLowerCase().includes(searchTerm.toLowerCase());
     } else {
-      return item.procurementId.toLowerCase().includes(searchTerm.toLowerCase());
+      return item.order_number && item.order_number.toLowerCase().includes(searchTerm.toLowerCase());
     }
   });
 
@@ -242,10 +235,43 @@ const Inventory = () => {
               </div>
             </div>
 
-            {/* Inventory Table */}
-            <div className="px-4 sm:px-6 py-4 overflow-x-auto">
-              {loading ? (
-                <div className="text-center py-8">Loading inventory...</div>
+            {/* Cards for available stock by item in selected location */}
+            {activeTab === "location" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
+                {Object.entries(
+                  filteredInventory.reduce((acc, item) => {
+                    if (!acc[item.item_name]) acc[item.item_name] = 0;
+                    acc[item.item_name] += item.available_qty;
+                    return acc;
+                  }, {})
+                ).map(([itemName, qty]) => {
+                  // Calculate discarded for this item at selectedLocation
+                  const discardedQty = discardedItems
+                    .filter(d => d.item && d.item.name === itemName && d.location === selectedLocation)
+                    .reduce((sum, d) => sum + d.quantity, 0);
+                  const netAvailable = qty - discardedQty;
+                  return (
+                    <div
+                      key={itemName}
+                      className="bg-white border border-blue-100 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-3 flex flex-col items-center justify-center min-h-[70px] w-full max-w-[200px] mx-auto"
+                    >
+                      <div className="text-sm font-semibold text-blue-700 mb-0.5 text-center">{itemName}</div>
+                      <div className="flex flex-col items-center w-full">
+                        <div className="text-xs text-gray-500 text-center tracking-wide uppercase">Available</div>
+                        <div className="text-xl font-bold text-blue-600 text-center mb-1">{netAvailable}</div>
+                        <div className="text-xs text-gray-500 text-center tracking-wide uppercase">Discarded</div>
+                        <div className="text-lg font-bold text-red-500 text-center">{discardedQty}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Table Section */}
+            <div className="p-4">
+              {activeTab === "total" ? (
+                <TotalInventoryTable />
               ) : (
                 <>
                   <table className="min-w-full divide-y divide-gray-200">
@@ -279,13 +305,13 @@ const Inventory = () => {
                               {item.id}
                             </td>
                             <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {item.name}
+                              {item.item_name}
                             </td>
                             <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {item.quantity}
+                              {item.available_qty}
                             </td>
                             <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {item.procurementId}
+                              {item.order_number}
                             </td>
                             <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {item.location}
@@ -405,7 +431,17 @@ const Inventory = () => {
       {/* Inventory Details Modal */}
       {selectedItem && (
         <InventoryDetails
-          item={selectedItem}
+          item={{
+            id: selectedItem.id,
+            name: selectedItem.item_name,
+            quantity: selectedItem.available_qty,
+            procurementId: selectedItem.order_number,
+            location: selectedItem.location,
+            supplier: selectedItem.supplier,
+            orderDate: selectedItem.order_date,
+            unitPrice: selectedItem.unit_price,
+            // You can add more details here as needed
+          }}
           onClose={() => setSelectedItem(null)}
         />
       )}

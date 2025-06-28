@@ -199,12 +199,11 @@ const DiscardedItems = () => {
       </div>
 
       {/* Add Discarded Item Form */}
-      {showForm && (
-        <AddDiscardedItemForm 
-          onClose={() => setShowForm(false)} 
-          onSubmit={handleSubmitDiscardedItem} 
-        />
-      )}
+      <AddDiscardedItemForm 
+        show={showForm}
+        onClose={() => setShowForm(false)} 
+        onSubmit={handleSubmitDiscardedItem} 
+      />
 
       {/* Details Modal */}
       {showDetails && selectedItem && (

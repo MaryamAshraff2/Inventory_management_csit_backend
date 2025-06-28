@@ -44,18 +44,30 @@ const InventoryDetails = ({ item, onClose }) => {
             <div className="border-t pt-4">
               <h3 className="font-medium text-lg mb-4">Procurement Information</h3>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-500 mb-2">Supplier</h4>
-                  <p className="text-gray-900">{item.supplier}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-500 mb-2">Date</h4>
-                  <p className="text-gray-900">{item.date}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-500 mb-2">Added By</h4>
-                  <p className="text-gray-900">{item.addedBy}</p>
-                </div>
+                {item.supplier && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-500 mb-2">Supplier</h4>
+                    <p className="text-gray-900">{item.supplier}</p>
+                  </div>
+                )}
+                {item.orderDate && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-500 mb-2">Order Date</h4>
+                    <p className="text-gray-900">{item.orderDate}</p>
+                  </div>
+                )}
+                {item.unitPrice && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-500 mb-2">Unit Price</h4>
+                    <p className="text-gray-900">{item.unitPrice}</p>
+                  </div>
+                )}
+                {item.addedBy && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-500 mb-2">Added By</h4>
+                    <p className="text-gray-900">{item.addedBy}</p>
+                  </div>
+                )}
               </div>
             </div>
   

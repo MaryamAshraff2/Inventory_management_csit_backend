@@ -143,7 +143,7 @@ const Items = () => {
                             {item.category?.name || '—'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {item.quantity}
+                            {item.total_quantity}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.unit_price !== undefined && item.unit_price !== null

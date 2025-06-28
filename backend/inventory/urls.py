@@ -6,7 +6,7 @@ from .views.usermanagement import UserViewSet
 from .views.login import login_api
 from .views.departments import DepartmentViewSet
 from .views.categories import CategoryViewSet
-from .views.items import ItemViewSet
+from .views.items import ItemViewSet, get_item_availability
 from .views.procurements import ProcurementViewSet
 from .views.locations import LocationViewSet
 from .views.stockmovements import StockMovementViewSet
@@ -31,6 +31,7 @@ router.register(r'reports', ReportViewSet)
 urlpatterns = [
     path('login/', login_api, name='login'),
     path('', include(router.urls)),
+    path('api/item-availability/', get_item_availability, name='item-availability'),
 ]
 
 

@@ -1,7 +1,4 @@
 from django.db import models
-from django.db.models.signals import post_save, post_delete
-from django.dispatch import receiver
-from django.db.models import Sum
 
 class User(models.Model):
     name = models.CharField(max_length=100)
@@ -24,6 +21,11 @@ class Department(models.Model):
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
     item_count = models.PositiveIntegerField(default=0)
+    dead_stock_count = models.PositiveIntegerField(default=0)  # Track dead stock
+
+    @classmethod
+    def get_dead_stock_category(cls):
+        return cls.objects.get_or_create(name='Dead Stock')[0]
 
     def __str__(self):
         return self.name
@@ -32,11 +34,13 @@ class Category(models.Model):
 class Item(models.Model):
     name = models.CharField(max_length=100, unique=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='items')
-    quantity = models.PositiveIntegerField(default=0)
+    total_quantity = models.PositiveIntegerField(default=0)
+    available_quantity = models.PositiveIntegerField(default=0)
+    dead_stock_quantity = models.PositiveIntegerField(default=0)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} (Total: {self.total_quantity}, Available: {self.available_quantity}, Dead: {self.dead_stock_quantity})"
 
 
 class Procurement(models.Model):
@@ -94,6 +98,10 @@ class Location(models.Model):
     def __str__(self):
         return self.name 
 
+    @classmethod
+    def get_main_store(cls):
+        return cls.objects.get_or_create(name='Main Store')[0]
+
 
 class StockMovement(models.Model):
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='stock_movements')
@@ -132,6 +140,7 @@ class DiscardedItem(models.Model):
     ]
     
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='discarded_items')
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='discarded_items')
     quantity = models.PositiveIntegerField()
     date = models.DateField(auto_now_add=True)
     reason = models.CharField(max_length=20, choices=REASON_CHOICES)
@@ -139,12 +148,16 @@ class DiscardedItem(models.Model):
     notes = models.TextField(blank=True, null=True)
     
     def __str__(self):
-        return f"{self.quantity} x {self.item.name} discarded on {self.date} ({self.reason})"
+        return f"{self.quantity} x {self.item.name} discarded at {self.location.name} on {self.date} ({self.reason})"
     
     def save(self, *args, **kwargs):
-        # Update the item's quantity when it's discarded
         if not self.pk:  # Only for new instances
-            self.item.quantity -= self.quantity
+            self.item.total_quantity -= self.quantity
+            self.item.dead_stock_quantity += self.quantity
+            # Only update available_quantity if discarding from Main Store
+            from_location = getattr(self, 'from_location', None)
+            if from_location and from_location.name == 'Main Store':
+                self.item.available_quantity = max(0, self.item.available_quantity - self.quantity)
             self.item.save()
         super().save(*args, **kwargs)
 
@@ -159,3 +172,21 @@ class Report(models.Model):
 
     def __str__(self):
         return f"{self.report_type} Report generated on {self.generated_at.strftime('%Y-%m-%d %H:%M:%S')}"
+
+class TotalInventory(models.Model):
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='total_inventory')
+    procurement = models.ForeignKey(Procurement, on_delete=models.CASCADE, related_name='total_inventory')
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='total_inventory')
+    available_quantity = models.PositiveIntegerField(default=0)
+    order_number = models.CharField(max_length=20)
+    supplier = models.CharField(max_length=255, null=True, blank=True)
+    order_date = models.DateField(null=True, blank=True)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    last_updated = models.DateTimeField(auto_now=True)
+    last_stock_movement = models.ForeignKey('StockMovement', on_delete=models.SET_NULL, null=True, blank=True, related_name='inventory_records')
+
+    class Meta:
+        unique_together = ('item', 'procurement', 'location')
+
+    def __str__(self):
+        return f"{self.item.name} ({self.order_number}) at {self.location.name}: {self.available_quantity}"

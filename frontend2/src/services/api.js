@@ -131,6 +131,7 @@ export const discardedItemsAPI = {
 export const itemsAPI = {
   getAll: () => apiRequest('/items/'),
   getById: (id) => apiRequest(`/items/${id}/`),
+  getTotalInventory: () => apiRequest('/items/total_inventory/'),
 };
 
 // Users API (for dropdown)

@@ -13,7 +13,6 @@ const StockMovementForm = ({ show, onClose, onSubmit }) => {
     from_location_id: '',
     to_location_id: '',
     quantity: '',
-    movement_date: new Date().toISOString().split('T')[0],
     received_by_id: '',
     notes: ''
   });
@@ -35,13 +34,24 @@ const StockMovementForm = ({ show, onClose, onSubmit }) => {
   // Fetch available quantity for selected item/location
   useEffect(() => {
     if (formData.item_id && formData.from_location_id) {
-      // You may need a custom endpoint for item quantity at a location. For now, fallback to item.quantity
-      const item = items.find(i => i.id === Number(formData.item_id));
-      setAvailableQty(item ? item.quantity : null);
+      // Use the proper API endpoint that handles Main Store vs other locations correctly
+      axios.get(`${API_BASE}/api/item-availability/`, {
+        params: {
+          item_id: formData.item_id,
+          location_id: formData.from_location_id
+        }
+      })
+      .then(response => {
+        setAvailableQty(response.data.available_quantity);
+      })
+      .catch(error => {
+        console.error('Error fetching available quantity:', error);
+        setAvailableQty(0);
+      });
     } else {
       setAvailableQty(null);
     }
-  }, [formData.item_id, formData.from_location_id, items]);
+  }, [formData.item_id, formData.from_location_id]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -57,7 +67,6 @@ const StockMovementForm = ({ show, onClose, onSubmit }) => {
     if (formData.from_location_id && formData.to_location_id && formData.from_location_id === formData.to_location_id) errs.to_location_id = 'Source and destination must differ';
     if (!formData.quantity || isNaN(formData.quantity) || Number(formData.quantity) <= 0) errs.quantity = 'Enter a valid quantity';
     if (availableQty !== null && Number(formData.quantity) > availableQty) errs.quantity = `Cannot exceed available (${availableQty})`;
-    if (!formData.movement_date) errs.movement_date = 'Date is required';
     if (!formData.received_by_id) errs.received_by_id = 'Receiver is required';
     return errs;
   };
@@ -71,11 +80,26 @@ const StockMovementForm = ({ show, onClose, onSubmit }) => {
     }
     setLoading(true);
     try {
+      console.log('Sending stock movement data:', formData);
       await axios.post(`${API_BASE}/stockmovements/`, formData);
       if (onSubmit) onSubmit();
       if (onClose) onClose();
     } catch (error) {
-      setErrors({ form: error.response?.data?.detail || 'Failed to record movement' });
+      console.error('Stock movement error:', error.response?.data || error.message);
+      // Show all error messages from backend
+      let backendErrors = {};
+      if (error.response?.data) {
+        if (typeof error.response.data === 'string') {
+          backendErrors.form = error.response.data;
+        } else if (typeof error.response.data === 'object') {
+          Object.entries(error.response.data).forEach(([key, val]) => {
+            backendErrors[key] = Array.isArray(val) ? val.join(' ') : val;
+          });
+        }
+      } else {
+        backendErrors.form = 'Failed to record movement';
+      }
+      setErrors(backendErrors);
     } finally {
       setLoading(false);
     }
@@ -164,19 +188,6 @@ const StockMovementForm = ({ show, onClose, onSubmit }) => {
                   <div className="text-xs text-gray-500 mt-1">Available in source: {availableQty}</div>
                 )}
                 {errors.quantity && <div className="text-red-500 text-xs mt-1">{errors.quantity}</div>}
-              </div>
-              {/* Movement Date Picker */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Movement Date</label>
-                <input
-                  type="date"
-                  name="movement_date"
-                  value={formData.movement_date}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-                {errors.movement_date && <div className="text-red-500 text-xs mt-1">{errors.movement_date}</div>}
               </div>
               {/* Received By Dropdown */}
               <div>

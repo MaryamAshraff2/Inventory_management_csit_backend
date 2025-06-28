@@ -70,3 +70,14 @@ def update_item_count_on_category_change(sender, instance, **kwargs):
         old_category.item_count = Item.objects.filter(category=old_category).exclude(pk=instance.pk).count()
         old_category.save(update_fields=["item_count"])
         # Increment new category will be handled in post_save
+
+def recalculate_total_inventory():
+    from inventory.management.commands.sync_total_inventory import Command
+    Command().handle()
+
+@receiver([post_save, post_delete], sender=None)
+def sync_total_inventory_signal(sender, instance, **kwargs):
+    from inventory.models import ProcurementItem, StockMovement, DiscardedItem
+    # Only trigger for relevant models (removed StockMovement to avoid race conditions)
+    if sender in (ProcurementItem, DiscardedItem):
+        recalculate_total_inventory()
