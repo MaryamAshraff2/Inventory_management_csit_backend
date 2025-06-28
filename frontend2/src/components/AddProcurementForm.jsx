@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
 import axios from 'axios';
 
-export default function ProcurementForm({ procurement, onClose, onSubmit }) {
+export default function ProcurementForm({ procurement, onClose, onSubmit, availableItems = [], categories = [] }) {
+  console.log('ProcurementForm received availableItems:', availableItems);
+  console.log('ProcurementForm received categories:', categories);
+  
   const [procurementType, setProcurementType] = useState("");
   const [items, setItems] = useState([
     { itemName: "", quantity: "", unitPrice: "", categoryID: "", isNew: false, itemId: null },
   ]);
-  const [availableItems, setAvailableItems] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [activeTab, setActiveTab] = useState("basic");
   const [supplier, setSupplier] = useState("");
   const [ProcurementDate, setProcurementDate] = useState("");
@@ -15,42 +16,34 @@ export default function ProcurementForm({ procurement, onClose, onSubmit }) {
   const [document, setDocument] = useState(null);
   const [documentType, setDocumentType] = useState("");
 
-  // Fetch available items and categories from backend
-  useEffect(() => {
-    const fetchItems = async () => {
-      try {
-        const response = await axios.get('http://localhost:8000/inventory/items/');
-        setAvailableItems(response.data);
-      } catch (error) {
-        console.error('Error fetching items:', error);
-      }
-    };
-    fetchItems();
-  }, []);
-
-  useEffect(() => {
-    axios.get('http://localhost:8000/inventory/categories/')
-      .then(res => setCategories(res.data))
-      .catch(err => console.error(err));
-  }, []);
-
+  // Reset form when procurement changes
   useEffect(() => {
     if (procurement) {
-      setProcurementType(procurement.type || "");
+      setProcurementType(procurement.procurement_type || "");
       setSupplier(procurement.supplier || "");
       setProcurementDate(procurement.order_date || "");
       setNotes(procurement.notes || "");
-      setDocument(null); // Don't prefill file
-      setItems([
-        {
-          itemName: procurement.item?.name || "",
-          quantity: procurement.quantity || "",
-          unitPrice: procurement.unit_price || "",
-          categoryID: procurement.item?.category?.id || "",
+      setDocumentType(procurement.document_type || "");
+      // Handle items if they exist
+      if (procurement.items && procurement.items.length > 0) {
+        setItems(procurement.items.map(item => ({
+          itemName: item.item?.name || "",
+          quantity: item.quantity || "",
+          unitPrice: item.unit_price || "",
+          categoryID: item.item?.category || "",
           isNew: false,
-          itemId: procurement.item?.id || null,
-        },
-      ]);
+          itemId: item.item?.id || null
+        })));
+      }
+    } else {
+      // Reset form for new procurement
+      setProcurementType("");
+      setItems([{ itemName: "", quantity: "", unitPrice: "", categoryID: "", isNew: false, itemId: null }]);
+      setSupplier("");
+      setProcurementDate("");
+      setNotes("");
+      setDocument(null);
+      setDocumentType("");
     }
   }, [procurement]);
 
@@ -101,59 +94,47 @@ export default function ProcurementForm({ procurement, onClose, onSubmit }) {
       alert("Please add at least one item to the procurement.");
       return;
     }
-    const formData = new FormData();
-    formData.append('supplier', supplier);
-    formData.append('order_date', ProcurementDate);
-    formData.append('procurement_type', procurementType);
-    formData.append('document_type', documentType);
-    if (document) {
-      formData.append('document', document);
-    }
-    // Build items array for backend
-    const itemsArray = items.map(item => {
-      if (item.isNew || item.itemName === "__new__") {
-        if (!item.itemName || !item.categoryID || !item.quantity || !item.unitPrice) {
-          throw new Error("Please fill all fields for new items.");
-        }
-        return {
-          item_data: {
-            name: item.itemName,
-            category: Number(item.categoryID),
+    
+    // Build form data object to pass to parent
+    const formData = {
+      supplier,
+      order_date: ProcurementDate,
+      procurement_type: procurementType,
+      document_type: documentType,
+      notes,
+      document,
+      items: items.map(item => {
+        if (item.isNew || item.itemName === "__new__") {
+          if (!item.itemName || !item.categoryID || !item.quantity || !item.unitPrice) {
+            throw new Error("Please fill all fields for new items.");
+          }
+          return {
+            item_data: {
+              name: item.itemName,
+              category: Number(item.categoryID),
+              unit_price: Number(item.unitPrice)
+            },
+            quantity: Number(item.quantity),
             unit_price: Number(item.unitPrice)
-          },
-          quantity: Number(item.quantity),
-          unit_price: Number(item.unitPrice)
-        };
-      } else {
-        if (!item.itemId) {
-          throw new Error("Please select an item.");
+          };
+        } else {
+          if (!item.itemId) {
+            throw new Error("Please select an item.");
+          }
+          return {
+            item: item.itemId,
+            quantity: Number(item.quantity),
+            unit_price: Number(item.unitPrice)
+          };
         }
-        return {
-          item: item.itemId,
-          quantity: Number(item.quantity),
-          unit_price: Number(item.unitPrice)
-        };
-      }
-    });
+      })
+    };
+
     try {
-      formData.append('items', JSON.stringify(itemsArray));
-    } catch (err) {
-      alert('Error serializing items: ' + err.message);
-      return;
-    }
-    try {
-      if (procurement) {
-        await axios.patch(`http://localhost:8000/inventory/procurements/${procurement.id}/`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        alert('Procurement updated successfully!');
-      } else {
-        await axios.post('http://localhost:8000/inventory/procurements/', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        alert('Procurement added successfully!');
+      // Pass form data to parent component instead of making API calls here
+      if (onSubmit) {
+        await onSubmit(formData);
       }
-      if (onSubmit) onSubmit();
       if (onClose) onClose();
     } catch (error) {
       const errorDetail = error.response?.data ? JSON.stringify(error.response.data) : error.message;

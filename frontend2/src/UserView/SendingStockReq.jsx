@@ -21,8 +21,33 @@ const locations = [
 export default function SendingStockReq() {
   const [showForm, setShowForm] = useState(false);
   const [requests, setRequests] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [items, setItems] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Fetch all data on component mount
+  useEffect(() => {
+    fetchRequests();
+    fetchDropdownData();
+  }, []);
+
+  // Fetch dropdown data (users, items, locations)
+  const fetchDropdownData = async () => {
+    try {
+      const [usersRes, itemsRes, locationsRes] = await Promise.all([
+        axios.get("http://localhost:8000/inventory/users/"),
+        axios.get("http://localhost:8000/inventory/items/"),
+        axios.get("http://localhost:8000/inventory/locations/")
+      ]);
+      setUsers(usersRes.data);
+      setItems(itemsRes.data);
+      setLocations(locationsRes.data);
+    } catch (error) {
+      console.error('Error fetching dropdown data:', error);
+    }
+  };
 
   const fetchRequests = () => {
     setLoading(true);
@@ -38,13 +63,22 @@ export default function SendingStockReq() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => {
-    fetchRequests();
-  }, []);
+  // Handle form submission
+  const handleFormSubmit = async (formData) => {
+    try {
+      await axios.post("http://localhost:8000/inventory/sendingstockrequests/", {
+        item_id: formData.item_id,
+        quantity: formData.quantity,
+        requested_by: formData.requested_by,
+      });
+      await fetchRequests(); // Refresh the requests list
+    } catch (error) {
+      throw error; // Re-throw to let the form handle the error display
+    }
+  };
 
   const handleFormClose = () => {
     setShowForm(false);
-    fetchRequests(); // Refresh table after closing form
   };
 
   return (
@@ -132,7 +166,13 @@ export default function SendingStockReq() {
           </div>
           {/* Modal Form */}
           {showForm && (
-            <SendingStockReqForm onClose={handleFormClose} />
+            <SendingStockReqForm 
+              onClose={handleFormClose} 
+              onSubmit={handleFormSubmit}
+              users={users}
+              items={items}
+              locations={locations}
+            />
           )}
         </main>
       </div>

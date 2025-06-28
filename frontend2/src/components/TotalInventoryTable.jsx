@@ -58,13 +58,22 @@ const TotalInventoryTable = () => {
                   <td className="px-4 py-2">{row.order_number}</td>
                   <td className="px-4 py-2">{row.location}</td>
                   <td className="px-4 py-2 text-center">
-                    <button
+                    {/* <button
                       className="text-blue-600 hover:text-blue-800 flex items-center justify-center"
                       onClick={() => { setSelectedRow(row); setShowModal(true); }}
                       title="View Details"
                     >
                       <FiEye className="inline-block mr-1" /> View
+                    </button> */}
+                    <button
+                      className="text-blue-600 border border-blue-600 rounded px-2 py-1 text-xs hover:bg-blue-600 hover:text-white transition-colors"
+                      onClick={() => { setSelectedRow(row); setShowModal(true); }}
+                      title="View Details"
+                    >
+                      View
                     </button>
+
+
                   </td>
                 </tr>
               ))

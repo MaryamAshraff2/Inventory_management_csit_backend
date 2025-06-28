@@ -108,12 +108,35 @@ const Categories = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this category?")) {
+    const category = categories.find(c => c.id === id);
+    if (!category) return;
+    
+    const confirmMessage = category.item_count > 0
+      ? `Cannot delete category "${category.name}" because it has ${category.item_count} associated item(s). Please remove or reassign all items before deleting this category.`
+      : `Are you sure you want to delete the category "${category.name}"? This action cannot be undone.`;
+    
+    if (category.item_count > 0) {
+      alert(confirmMessage);
+      return;
+    }
+    
+    if (window.confirm(confirmMessage)) {
       try {
         await axios.delete(`http://localhost:8000/inventory/categories/${id}/`);
         setCategories(categories.filter((c) => c.id !== id));
+        alert("Category deleted successfully!");
       } catch (error) {
         console.error("Error deleting category:", error);
+        if (error.response) {
+          // Server responded with error status
+          alert(`Failed to delete category: ${error.response.data?.detail || error.response.statusText}`);
+        } else if (error.request) {
+          // Request was made but no response received
+          alert("Failed to delete category: No response from server");
+        } else {
+          // Something else happened
+          alert(`Failed to delete category: ${error.message}`);
+        }
       }
     }
   };
@@ -207,22 +230,31 @@ const Categories = () => {
                               {category.item_count}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button
-                              onClick={() => handleEdit(category)}
-                              className="text-blue-600 hover:text-blue-900 mr-3 p-1 rounded hover:bg-blue-50"
-                              title="Edit"
-                            >
-                              <FaEdit />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(category.id)}
-                              className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-                              title="Delete"
-                            >
-                              <FaTrash />
-                            </button>
-                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm flex gap-2">
+                              <button
+                                onClick={() => handleEdit(category)}
+                                className="text-blue-600 border border-blue-600 rounded px-2 py-1 hover:bg-blue-600 hover:text-white transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDelete(category.id)}
+                                disabled={category.item_count > 0}
+                                className={`border rounded px-2 py-1 transition-colors ${
+                                  category.item_count > 0
+                                    ? 'text-gray-400 border-gray-300 cursor-not-allowed'
+                                    : 'text-red-600 border-red-600 hover:bg-red-600 hover:text-white'
+                                }`}
+                                title={
+                                  category.item_count > 0
+                                    ? `Cannot delete category with ${category.item_count} item(s)`
+                                    : 'Delete category'
+                                }
+                              >
+                                Delete
+                              </button>
+                              
+                            </td>
                         </tr>
                       ))}
                     </tbody>

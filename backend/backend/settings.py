@@ -113,8 +113,8 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'NED_Inventory',
-        'USER': 'sara',
+        'NAME': 'BCIT_LABS',
+        'USER': 'postgres',
         'PASSWORD': '12345678',
         'HOST': 'localhost',        
         'PORT': '5432',            

@@ -7,6 +7,9 @@ import StockMovementForm from '../components/StockMovementForm';
 
 const StockMovement = () => {
   const [movements, setMovements] = useState([]);
+  const [items, setItems] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBy, setFilterBy] = useState('item');
@@ -16,7 +19,24 @@ const StockMovement = () => {
 
   useEffect(() => {
     fetchMovements();
+    fetchDropdownData();
   }, []);
+
+  // Fetch dropdown data (items, locations, users)
+  const fetchDropdownData = async () => {
+    try {
+      const [itemsRes, locationsRes, usersRes] = await Promise.all([
+        axios.get('http://localhost:8000/inventory/items/'),
+        axios.get('http://localhost:8000/inventory/locations/'),
+        axios.get('http://localhost:8000/inventory/users/')
+      ]);
+      setItems(itemsRes.data);
+      setLocations(locationsRes.data);
+      setUsers(usersRes.data);
+    } catch (error) {
+      console.error('Error fetching dropdown data:', error);
+    }
+  };
 
   // Fetch movements function for reuse
   const fetchMovements = async () => {
@@ -60,6 +80,16 @@ const StockMovement = () => {
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
+
+  // Handle form submission
+  const handleFormSubmit = async (formData) => {
+    try {
+      await axios.post('http://localhost:8000/inventory/stockmovements/', formData);
+      await fetchMovements(); // Refresh the movements list
+    } catch (error) {
+      throw error; // Re-throw to let the form handle the error display
+    }
+  };
 
   return (
     <div className="flex w-full min-h-screen bg-gray-100">
@@ -205,10 +235,10 @@ const StockMovement = () => {
       <StockMovementForm
         show={showForm}
         onClose={() => setShowForm(false)}
-        onSubmit={async () => {
-          setShowForm(false);
-          await fetchMovements();
-        }}
+        onSubmit={handleFormSubmit}
+        items={items}
+        locations={locations}
+        users={users}
       />
     </div>
   );

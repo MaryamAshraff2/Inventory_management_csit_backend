@@ -12,6 +12,13 @@ const Items = () => {
   const [filterBy, setFilterBy] = useState("name");
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    category_id: '',
+    unit_price: ''
+  });
 
   useEffect(() => {
     const fetchItems = async () => {
@@ -39,6 +46,61 @@ const Items = () => {
     };
     fetchCategories();
   }, []);
+
+  const handleEdit = (item) => {
+    setEditingItem(item);
+    setEditFormData({
+      name: item.name,
+      category_id: item.category?.id || '',
+      unit_price: item.unit_price || ''
+    });
+    setShowEditForm(true);
+  };
+
+  const handleDelete = async (itemId) => {
+    if (window.confirm("Are you sure you want to delete this item?")) {
+      try {
+        await axios.delete(`http://localhost:8000/inventory/items/${itemId}/`);
+        // Refresh the items list
+        const response = await axios.get("http://localhost:8000/inventory/items/");
+        setItems(response.data);
+        alert("Item deleted successfully");
+      } catch (error) {
+        console.error("Error deleting item:", error);
+        alert("Failed to delete item");
+      }
+    }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.put(`http://localhost:8000/inventory/items/${editingItem.id}/`, {
+        name: editFormData.name,
+        category_id: editFormData.category_id,
+        unit_price: parseFloat(editFormData.unit_price)
+      });
+      
+      // Refresh the items list
+      const response = await axios.get("http://localhost:8000/inventory/items/");
+      setItems(response.data);
+      
+      setShowEditForm(false);
+      setEditingItem(null);
+      alert("Item updated successfully");
+    } catch (error) {
+      console.error("Error updating item:", error);
+      alert("Failed to update item");
+    }
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
   const filteredItems = items.filter((item) => {
     if (filterBy === "name") {
@@ -150,7 +212,7 @@ const Items = () => {
                               ? Number(item.unit_price).toFixed(2)
                               : '0.00'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          {/* <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <button
                               onClick={() => handleEdit(item)}
                               className="text-blue-600 hover:text-blue-900 mr-3"
@@ -163,7 +225,24 @@ const Items = () => {
                             >
                               <FaTrash />
                             </button>
-                          </td>
+                          </td> */}
+
+                          <td className="px-6 py-4 whitespace-nowrap text-sm flex gap-2">
+                              <button
+                                onClick={() => handleEdit(item)}
+                                className="text-blue-600 border border-blue-600 rounded px-2 py-1 hover:bg-blue-600 hover:text-white transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDelete(item)}
+                                className="text-red-600 border border-red-600 rounded px-2 py-1 hover:bg-red-600 hover:text-white transition-colors"
+                              >
+                                Delete
+                              </button>
+                              
+                            </td>
+
                         </tr>
                       ))}
                     </tbody>
@@ -233,6 +312,98 @@ const Items = () => {
           </div>
         </main>
       </div>
+
+      {/* Edit Item Modal */}
+      {showEditForm && editingItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-xl font-semibold">Edit Item</h3>
+                  <p className="text-gray-600 text-sm">Update item information</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setShowEditForm(false);
+                    setEditingItem(null);
+                  }}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  &times;
+                </button>
+              </div>
+              
+              <form onSubmit={handleEditSubmit}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={editFormData.name}
+                      onChange={handleEditChange}
+                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <select
+                      name="category_id"
+                      value={editFormData.category_id}
+                      onChange={handleEditChange}
+                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="">Select category</option>
+                      {categories.map(category => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price</label>
+                    <input
+                      type="number"
+                      name="unit_price"
+                      value={editFormData.unit_price}
+                      onChange={handleEditChange}
+                      step="0.01"
+                      min="0"
+                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-6 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditForm(false);
+                      setEditingItem(null);
+                    }}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Update Item
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

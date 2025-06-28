@@ -1,11 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FiX } from 'react-icons/fi';
-import axios from 'axios';
 
-const API_BASE = 'http://localhost:8000/inventory'; // Change if your backend runs elsewhere
-
-const AddUserForm = ({ user, onClose, onSubmit }) => {
-  const [departments, setDepartments] = useState([]);
+const AddUserForm = ({ user, onClose, onSubmit, departments = [] }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -14,13 +10,11 @@ const AddUserForm = ({ user, onClose, onSubmit }) => {
   });
 
   useEffect(() => {
-    axios.get(`${API_BASE}/departments/`).then(res => {
-      setDepartments(res.data);
-      if (!user && res.data.length > 0) {
-        setFormData(prev => ({ ...prev, department: res.data[0].id }));
-      }
-    });
-  }, []);
+    // Set default department when departments are available
+    if (departments.length > 0 && !user) {
+      setFormData(prev => ({ ...prev, department: departments[0].id }));
+    }
+  }, [departments, user]);
 
   useEffect(() => {
     if (user) {
@@ -43,18 +37,9 @@ const AddUserForm = ({ user, onClose, onSubmit }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (user) {
-      axios.patch(`${API_BASE}/users/${user.id}/`, formData)
-        .then(res => {
-          if (onSubmit) onSubmit(res.data);
-          if (onClose) onClose();
-        });
-    } else {
-      axios.post(`${API_BASE}/users/`, formData)
-        .then(res => {
-          if (onSubmit) onSubmit(res.data);
-          if (onClose) onClose();
-        });
+    // Pass form data to parent component instead of making API calls here
+    if (onSubmit) {
+      onSubmit(formData);
     }
   };
 

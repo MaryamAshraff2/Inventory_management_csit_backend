@@ -210,14 +210,32 @@ const StockRequestsManagement = () => {
                           <td className="px-4 py-3">
                             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[req.status] || 'bg-gray-100 text-gray-800'}`}>{req.status || 'Unknown'}</span>
                           </td>
-                          <td className="px-4 py-3 flex gap-2 items-center">
+                          {/* <td className="px-4 py-3 flex gap-2 items-center">
                             <button className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg text-xs font-medium hover:bg-blue-200 transition" onClick={() => handleView(req)}>View</button>
                             {req.status === 'Pending' && (
                               <button className="p-2 hover:bg-gray-100 rounded-full" onClick={() => handleEdit(req)}>
                                 <FaEdit className="text-gray-500" />
                               </button>
                             )}
-                          </td>
+                          </td> */}
+
+<td className="px-4 py-3 flex gap-2 items-center">
+  <button
+    className="text-blue-600 border border-blue-600 rounded px-3 py-1 text-xs font-medium hover:bg-blue-600 hover:text-white transition-colors"
+    onClick={() => handleView(req)}
+  >
+    View
+  </button>
+  {req.status === 'Pending' && (
+    <button
+      className="border border-gray-300 p-2 rounded-full hover:bg-gray-100 transition-colors"
+      onClick={() => handleEdit(req)}
+    >
+      <FaEdit className="text-gray-600" />
+    </button>
+  )}
+</td>
+
                         </tr>
                       ))
                     )}

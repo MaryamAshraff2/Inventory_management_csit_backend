@@ -22,6 +22,8 @@ const SHOW_OPTIONS = [
 const ProcurementPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [procurements, setProcurements] = useState([]);
+  const [items, setItems] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('All Suppliers');
   const [timeFilter, setTimeFilter] = useState('All Time');
@@ -34,6 +36,28 @@ const ProcurementPage = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Fetch all data on component mount
+  useEffect(() => {
+    fetchProcurements();
+    fetchDropdownData();
+  }, []);
+
+  // Fetch dropdown data (items, categories)
+  const fetchDropdownData = async () => {
+    try {
+      const [itemsRes, categoriesRes] = await Promise.all([
+        axios.get('http://localhost:8000/inventory/items/'),
+        axios.get('http://localhost:8000/inventory/categories/')
+      ]);
+      console.log('Fetched items:', itemsRes.data);
+      console.log('Fetched categories:', categoriesRes.data);
+      setItems(itemsRes.data);
+      setCategories(categoriesRes.data);
+    } catch (error) {
+      console.error('Error fetching dropdown data:', error);
+    }
+  };
+
   // Fetch procurements from backend
   const fetchProcurements = async () => {
     try {
@@ -43,10 +67,6 @@ const ProcurementPage = () => {
       console.error('Failed to fetch procurements:', error);
     }
   };
-
-  useEffect(() => {
-    fetchProcurements();
-  }, []);
 
   // Filtered suppliers for dropdown
   const uniqueSuppliers = [
@@ -96,10 +116,37 @@ const ProcurementPage = () => {
     setEditingProcurement(proc);
     setShowForm(true);
   };
-  const handleFormSubmit = async () => {
-    await fetchProcurements();
-    setShowForm(false);
-    setEditingProcurement(null);
+  const handleFormSubmit = async (formData) => {
+    try {
+      const submitData = new FormData();
+      submitData.append('supplier', formData.supplier);
+      submitData.append('order_date', formData.order_date);
+      submitData.append('procurement_type', formData.procurement_type);
+      submitData.append('document_type', formData.document_type);
+      submitData.append('notes', formData.notes);
+      if (formData.document) {
+        submitData.append('document', formData.document);
+      }
+      submitData.append('items', JSON.stringify(formData.items));
+
+      if (editingProcurement) {
+        await axios.patch(`http://localhost:8000/inventory/procurements/${editingProcurement.id}/`, submitData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      } else {
+        await axios.post('http://localhost:8000/inventory/procurements/', submitData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
+      
+      await fetchProcurements();
+      setShowForm(false);
+      setEditingProcurement(null);
+    } catch (error) {
+      const errorDetail = error.response?.data ? JSON.stringify(error.response.data) : error.message;
+      alert(`Error: ${errorDetail}`);
+      throw error;
+    }
   };
 
   const handleView = (proc) => {
@@ -243,11 +290,32 @@ const ProcurementPage = () => {
                             'No document'
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm flex gap-2">
+                        {/* <td className="px-6 py-4 whitespace-nowrap text-sm flex gap-2">
                           <button onClick={() => handleView(proc)} className="text-blue-600 hover:underline">View</button>
                           <button onClick={() => handleEdit(proc)} className="text-yellow-600 hover:underline">Edit</button>
                           <button onClick={() => handleDelete(proc)} className="text-red-600 hover:underline">Delete</button>
-                        </td>
+                        </td> */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm flex gap-2">
+  <button
+    onClick={() => handleView(proc)}
+    className="text-blue-600 border border-blue-600 rounded px-2 py-1 hover:bg-blue-600 hover:text-white transition-colors"
+  >
+    View
+  </button>
+  <button
+    onClick={() => handleEdit(proc)}
+    className="text-yellow-600 border border-yellow-600 rounded px-2 py-1 hover:bg-yellow-600 hover:text-white transition-colors"
+  >
+    Edit
+  </button>
+  <button
+    onClick={() => handleDelete(proc)}
+    className="text-red-600 border border-red-600 rounded px-2 py-1 hover:bg-red-600 hover:text-white transition-colors"
+  >
+    Delete
+  </button>
+</td>
+
                       </tr>
                     ))
                   ) : (
@@ -273,7 +341,13 @@ const ProcurementPage = () => {
             >
               &times;
             </button>
-            <ProcurementForm procurement={editingProcurement} onClose={() => setShowForm(false)} onSubmit={handleFormSubmit} />
+            <ProcurementForm 
+              procurement={editingProcurement} 
+              onClose={() => setShowForm(false)} 
+              onSubmit={handleFormSubmit} 
+              availableItems={items}
+              categories={categories}
+            />
           </div>
         </div>
       )}

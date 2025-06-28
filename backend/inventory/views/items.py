@@ -20,6 +20,59 @@ class ItemViewSet(viewsets.ModelViewSet):
         serializer = TotalInventoryRowSerializer(inventory_rows, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'])
+    def locations_with_stock(self, request):
+        """
+        Returns locations where a specific item has available stock.
+        Query parameter: item_id
+        """
+        item_id = request.query_params.get('item_id')
+        
+        if not item_id:
+            return Response({"error": "item_id parameter is required"}, status=400)
+        
+        try:
+            item = Item.objects.get(id=item_id)
+            locations_with_stock = []
+            
+            # Check Main Store (special case)
+            if item.available_quantity > 0:
+                main_store = Location.get_main_store()
+                locations_with_stock.append({
+                    'id': main_store.id,
+                    'name': main_store.name,
+                    'available_quantity': item.available_quantity
+                })
+            
+            # Check other locations using TotalInventory
+            from django.db.models import Sum
+            location_stock = TotalInventory.objects.filter(
+                item_id=item_id,
+                available_quantity__gt=0
+            ).exclude(
+                location__name='Main Store'  # Exclude Main Store as it's handled above
+            ).values('location__id', 'location__name').annotate(
+                total_available=Sum('available_quantity')
+            )
+            
+            for loc_stock in location_stock:
+                locations_with_stock.append({
+                    'id': loc_stock['location__id'],
+                    'name': loc_stock['location__name'],
+                    'available_quantity': loc_stock['total_available']
+                })
+            
+            return Response({
+                'item_id': item_id,
+                'item_name': item.name,
+                'locations': locations_with_stock
+            })
+            
+        except Item.DoesNotExist:
+            return Response({"error": "Item not found"}, status=404)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
 @api_view(['GET'])
 def get_item_availability(request):
     item_id = request.query_params.get('item_id')

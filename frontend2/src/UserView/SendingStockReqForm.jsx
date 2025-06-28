@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { FaTimes } from "react-icons/fa";
-import axios from "axios";
 
 // Example locations for demonstration
 const defaultLocations = [
@@ -18,33 +17,15 @@ const initialForm = {
   requested_by: "",
 };
 
-function SendingStockReqForm({ onClose }) {
+function SendingStockReqForm({ onClose, onSubmit, users = [], items = [], locations = [] }) {
   const [form, setForm] = useState(initialForm);
-  const [users, setUsers] = useState([]);
-  const [items, setItems] = useState([]);
-  const [locations, setLocations] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
+  // Reset form when shown
   useEffect(() => {
-    // Fetch users, items, and locations in parallel
-    setLoading(true);
+    setForm(initialForm);
     setError("");
-    Promise.all([
-      axios.get("http://localhost:8000/inventory/users/"),
-      axios.get("http://localhost:8000/inventory/items/"),
-      axios.get("http://localhost:8000/inventory/locations/"),
-    ])
-      .then(([usersRes, itemsRes, locationsRes]) => {
-        setUsers(usersRes.data);
-        setItems(itemsRes.data);
-        setLocations(locationsRes.data);
-      })
-      .catch((err) => {
-        setError("Failed to load dropdown data");
-      })
-      .finally(() => setLoading(false));
   }, []);
 
   const handleChange = (e) => {
@@ -57,23 +38,20 @@ function SendingStockReqForm({ onClose }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
+    setLoading(true);
     setError("");
     try {
-      await axios.post("http://localhost:8000/inventory/sendingstockrequests/", {
-        item_id: form.item_id,
-        quantity: form.quantity,
-        requested_by: form.requested_by,
-        // You may need to adjust these field names depending on your backend
-        // If you want to store from/to location in the request, add them to the model/serializer
-      });
-      onClose();
+      // Pass form data to parent component instead of making API calls here
+      if (onSubmit) {
+        await onSubmit(form);
+      }
+      if (onClose) onClose();
     } catch (err) {
       setError(
         err.response?.data?.detail || "Failed to submit stock request. Please check your input."
       );
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 
@@ -180,16 +158,14 @@ function SendingStockReqForm({ onClose }) {
                   type="button"
                   onClick={onClose}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                  disabled={submitting}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  disabled={submitting}
                 >
-                  {submitting ? "Submitting..." : "Submit Request"}
+                  Submit Request
                 </button>
               </div>
             </form>

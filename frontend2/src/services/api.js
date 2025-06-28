@@ -132,6 +132,7 @@ export const itemsAPI = {
   getAll: () => apiRequest('/items/'),
   getById: (id) => apiRequest(`/items/${id}/`),
   getTotalInventory: () => apiRequest('/items/total_inventory/'),
+  getLocationsWithStock: (itemId) => apiRequest(`/items/locations_with_stock/?item_id=${itemId}`),
 };
 
 // Users API (for dropdown)
@@ -287,4 +288,11 @@ export const reportsAPI = {
       throw error;
     }
   },
+};
+
+// Locations API
+export const locationsAPI = {
+  getAll: () => apiRequest('/locations/'),
+  getById: (id) => apiRequest(`/locations/${id}/`),
+  getByProcurement: (procurementId) => apiRequest(`/locations/by_procurement/?procurement_id=${procurementId}`),
 }; 

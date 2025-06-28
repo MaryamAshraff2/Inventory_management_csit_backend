@@ -1,11 +1,18 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import AddDiscardedItemForm from "../components/AddDiscardedItemForm";
-import { discardedItemsAPI } from "../services/api";
+import { discardedItemsAPI, itemsAPI } from "../services/api";
+import axios from 'axios';
+
+const API_BASE = 'http://localhost:8000/inventory';
 
 const DiscardedItems = () => {
   const [discardedItems, setDiscardedItems] = useState([]);
+  const [procurements, setProcurements] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [totalInventory, setTotalInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -14,23 +21,45 @@ const DiscardedItems = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const fetchDiscardedItems = async () => {
+  // Fetch all data on component mount
+  useEffect(() => {
+    fetchDiscardedItems();
+    fetchDropdownData();
+  }, []);
+
+  // Fetch dropdown data (procurements, locations, users, total inventory)
+  const fetchDropdownData = async () => {
     try {
-      setLoading(true);
-      setError(null);
+      const [procurementsRes, locationsRes, usersRes] = await Promise.all([
+        axios.get(`${API_BASE}/procurements/`),
+        axios.get(`${API_BASE}/locations/`),
+        axios.get(`${API_BASE}/users/`)
+      ]);
+      setProcurements(procurementsRes.data);
+      setLocations(locationsRes.data);
+      setUsers(usersRes.data);
+      
+      // Fetch total inventory
+      const inventoryData = await itemsAPI.getTotalInventory();
+      setTotalInventory(inventoryData);
+    } catch (error) {
+      console.error('Error fetching dropdown data:', error);
+    }
+  };
+
+  const fetchDiscardedItems = async () => {
+    setLoading(true);
+    try {
       const data = await discardedItemsAPI.getAll();
       setDiscardedItems(data);
+      setError(null);
     } catch (err) {
-      console.error('Failed to fetch discarded items:', err);
-      setError('Failed to load discarded items. Please try again.');
+      setError('Failed to fetch discarded items');
+      setDiscardedItems([]);
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchDiscardedItems();
-  }, []);
 
   // Pagination logic
   const totalPages = Math.ceil(discardedItems.length / rowsPerPage);
@@ -39,10 +68,6 @@ const DiscardedItems = () => {
     currentPage * rowsPerPage
   );
 
-  const handleRefresh = () => {
-    fetchDiscardedItems();
-  };
-
   const handleViewDetails = (item) => {
     setSelectedItem(item);
     setShowDetails(true);
@@ -50,16 +75,8 @@ const DiscardedItems = () => {
 
   const handleSubmitDiscardedItem = async (formData) => {
     try {
-      // Transform form data to match API format
-      const apiData = {
-        item_id: parseInt(formData.item),
-        quantity: parseInt(formData.quantity),
-        reason: formData.reason,
-        discarded_by_id: parseInt(formData.discardedBy),
-        notes: formData.notes || '',
-      };
-
-      await discardedItemsAPI.create(apiData);
+      // The form data already has the correct structure for the API
+      await discardedItemsAPI.create(formData);
       setShowForm(false);
       // Refresh the list
       fetchDiscardedItems();
@@ -94,13 +111,6 @@ const DiscardedItems = () => {
                 </h3>
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={handleRefresh}
-                  className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg flex items-center"
-                >
-                  <span className="mr-2">↻</span>
-                  Refresh
-                </button>
                 <button
                   onClick={() => setShowForm(true)}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
@@ -153,12 +163,19 @@ const DiscardedItems = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.reason}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.discarded_by?.name || 'N/A'}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {/* <button 
+                                onClick={() => handleViewDetails(item)}
+                                className="text-xs text-blue-600 hover:text-blue-600 border border-blue-300 rounded px-2 py-1 hover:border-blue-400 transition-colors"
+                              >
+                                View
+                              </button> */}
                               <button 
                                 onClick={() => handleViewDetails(item)}
-                                className="text-xs text-gray-600 hover:text-blue-600 border border-gray-300 rounded px-2 py-1 hover:border-blue-400 transition-colors"
+                                className="text-blue-600 border border-blue-600 rounded px-2 py-1 text-xs hover:bg-blue-600 hover:text-white transition-colors"
                               >
                                 View
                               </button>
+
                             </td>
                           </tr>
                         ))
@@ -203,6 +220,10 @@ const DiscardedItems = () => {
         show={showForm}
         onClose={() => setShowForm(false)} 
         onSubmit={handleSubmitDiscardedItem} 
+        procurements={procurements}
+        locations={locations}
+        users={users}
+        totalInventory={totalInventory}
       />
 
       {/* Details Modal */}

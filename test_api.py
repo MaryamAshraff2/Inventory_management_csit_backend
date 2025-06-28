@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 import os
+import sys
 import django
 import requests
+import json
 
 # Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.backend.settings')
+sys.path.append(os.path.join(os.path.dirname(__file__), 'backend'))
 django.setup()
 
 from inventory.models import Item, Location, TotalInventory
@@ -56,5 +59,37 @@ def test_item_availability_api():
             except Exception as e:
                 print(f"  ❌ Exception: {e}")
 
+# Test the new API endpoint
+def test_locations_by_procurement():
+    base_url = "http://localhost:8000/inventory"
+    
+    # First, get all procurements
+    print("Fetching procurements...")
+    response = requests.get(f"{base_url}/procurements/")
+    if response.status_code == 200:
+        procurements = response.json()
+        print(f"Found {len(procurements)} procurements")
+        
+        if procurements:
+            # Test with the first procurement
+            first_procurement = procurements[0]
+            procurement_id = first_procurement['id']
+            print(f"\nTesting with procurement: {first_procurement['order_number']} (ID: {procurement_id})")
+            
+            # Test the new endpoint
+            response = requests.get(f"{base_url}/locations/by_procurement/?procurement_id={procurement_id}")
+            if response.status_code == 200:
+                locations = response.json()
+                print(f"Found {len(locations)} locations for this procurement:")
+                for loc in locations:
+                    print(f"  - {loc['name']}")
+            else:
+                print(f"Error: {response.status_code} - {response.text}")
+        else:
+            print("No procurements found to test with")
+    else:
+        print(f"Error fetching procurements: {response.status_code}")
+
 if __name__ == "__main__":
-    test_item_availability_api() 
+    test_item_availability_api()
+    test_locations_by_procurement() 

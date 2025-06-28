@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { FaTimes } from 'react-icons/fa';
+import { itemsAPI } from '../services/api';
 
-const API_BASE = 'http://localhost:8000/inventory';
-
-const StockMovementForm = ({ show, onClose, onSubmit }) => {
-  const [items, setItems] = useState([]);
-  const [locations, setLocations] = useState([]);
-  const [users, setUsers] = useState([]);
+const StockMovementForm = ({ show, onClose, onSubmit, items = [], locations = [], users = [] }) => {
   const [formData, setFormData] = useState({
     item_id: '',
     from_location_id: '',
@@ -19,44 +14,82 @@ const StockMovementForm = ({ show, onClose, onSubmit }) => {
   const [availableQty, setAvailableQty] = useState(null);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [filteredFromLocations, setFilteredFromLocations] = useState([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
 
-  // Fetch dropdown data
+  // Reset form when shown
   useEffect(() => {
-    if (!show) return;
-    axios.get(`${API_BASE}/items/`).then(res => setItems(res.data));
-    axios.get(`${API_BASE}/locations/`).then(res => setLocations(res.data));
-    axios.get(`${API_BASE}/users/`).then(res => setUsers(res.data));
-    setFormData(f => ({ ...f, item_id: '', from_location_id: '', to_location_id: '', quantity: '', received_by_id: '', notes: '' }));
-    setAvailableQty(null);
-    setErrors({});
+    if (show) {
+      setFormData({
+        item_id: '',
+        from_location_id: '',
+        to_location_id: '',
+        quantity: '',
+        received_by_id: '',
+        notes: ''
+      });
+      setAvailableQty(null);
+      setErrors({});
+      setFilteredFromLocations([]);
+    }
   }, [show]);
 
-  // Fetch available quantity for selected item/location
+  // Fetch locations with stock when item is selected
   useEffect(() => {
-    if (formData.item_id && formData.from_location_id) {
-      // Use the proper API endpoint that handles Main Store vs other locations correctly
-      axios.get(`${API_BASE}/api/item-availability/`, {
-        params: {
-          item_id: formData.item_id,
-          location_id: formData.from_location_id
-        }
-      })
-      .then(response => {
-        setAvailableQty(response.data.available_quantity);
-      })
-      .catch(error => {
-        console.error('Error fetching available quantity:', error);
-        setAvailableQty(0);
-      });
+    if (formData.item_id) {
+      fetchLocationsWithStock(formData.item_id);
     } else {
-      setAvailableQty(null);
+      setFilteredFromLocations([]);
+      setFormData(prev => ({ ...prev, from_location_id: '' }));
     }
-  }, [formData.item_id, formData.from_location_id]);
+  }, [formData.item_id]);
+
+  const fetchLocationsWithStock = async (itemId) => {
+    setLoadingLocations(true);
+    try {
+      const response = await itemsAPI.getLocationsWithStock(itemId);
+      setFilteredFromLocations(response.locations || []);
+      // Clear from_location_id if the current selection is not in the filtered list
+      if (formData.from_location_id) {
+        const currentLocationExists = response.locations.some(loc => loc.id === parseInt(formData.from_location_id));
+        if (!currentLocationExists) {
+          setFormData(prev => ({ ...prev, from_location_id: '' }));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching locations with stock:', error);
+      setFilteredFromLocations([]);
+    } finally {
+      setLoadingLocations(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     setErrors(prev => ({ ...prev, [name]: undefined }));
+    
+    // Clear dependent fields when item changes
+    if (name === 'item_id') {
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: value,
+        from_location_id: '',
+        to_location_id: '',
+        quantity: ''
+      }));
+      setAvailableQty(null);
+    }
+    
+    // Clear quantity when from_location changes
+    if (name === 'from_location_id') {
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: value,
+        quantity: ''
+      }));
+      setAvailableQty(null);
+    }
   };
 
   const validate = () => {
@@ -80,9 +113,10 @@ const StockMovementForm = ({ show, onClose, onSubmit }) => {
     }
     setLoading(true);
     try {
-      console.log('Sending stock movement data:', formData);
-      await axios.post(`${API_BASE}/stockmovements/`, formData);
-      if (onSubmit) onSubmit();
+      // Pass form data to parent component instead of making API calls here
+      if (onSubmit) {
+        await onSubmit(formData);
+      }
       if (onClose) onClose();
     } catch (error) {
       console.error('Stock movement error:', error.response?.data || error.message);
@@ -146,13 +180,26 @@ const StockMovementForm = ({ show, onClose, onSubmit }) => {
                   onChange={handleChange}
                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
+                  disabled={!formData.item_id || loadingLocations}
                 >
-                  <option value="">Select source location</option>
-                  {locations.map(loc => (
-                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                  <option value="">
+                    {!formData.item_id 
+                      ? 'Select an item first' 
+                      : loadingLocations 
+                        ? 'Loading locations...' 
+                        : 'Select source location'
+                    }
+                  </option>
+                  {filteredFromLocations.map(loc => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name} ({loc.available_quantity} available)
+                    </option>
                   ))}
                 </select>
                 {errors.from_location_id && <div className="text-red-500 text-xs mt-1">{errors.from_location_id}</div>}
+                {formData.item_id && filteredFromLocations.length === 0 && !loadingLocations && (
+                  <div className="text-orange-500 text-xs mt-1">No locations have stock for this item</div>
+                )}
               </div>
               {/* To Location Dropdown */}
               <div>
