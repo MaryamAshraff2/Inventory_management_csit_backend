@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import { FaEdit, FaTrash } from 'react-icons/fa';
+import DiscardedItems from "./DiscardedItems";
 
 const Categories = () => {
   const [categories, setCategories] = useState([]);
@@ -12,6 +13,8 @@ const Categories = () => {
   const [editingCategory, setEditingCategory] = useState(null);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showDeadStockModal, setShowDeadStockModal] = useState(false);
+  const [deadStockItems, setDeadStockItems] = useState([]);
 
   // Move fetchCategories outside useEffect
   const fetchCategories = async () => {
@@ -111,14 +114,7 @@ const Categories = () => {
     const category = categories.find(c => c.id === id);
     if (!category) return;
     
-    const confirmMessage = category.item_count > 0
-      ? `Cannot delete category "${category.name}" because it has ${category.item_count} associated item(s). Please remove or reassign all items before deleting this category.`
-      : `Are you sure you want to delete the category "${category.name}"? This action cannot be undone.`;
-    
-    if (category.item_count > 0) {
-      alert(confirmMessage);
-      return;
-    }
+    const confirmMessage = `Are you sure you want to delete the category "${category.name}"? This action cannot be undone and may affect associated items.`;
     
     if (window.confirm(confirmMessage)) {
       try {
@@ -128,19 +124,26 @@ const Categories = () => {
       } catch (error) {
         console.error("Error deleting category:", error);
         if (error.response) {
-          // Server responded with error status
           alert(`Failed to delete category: ${error.response.data?.detail || error.response.statusText}`);
         } else if (error.request) {
-          // Request was made but no response received
           alert("Failed to delete category: No response from server");
         } else {
-          // Something else happened
           alert(`Failed to delete category: ${error.message}`);
         }
       }
     }
   };
   
+  // Fetch discarded items for dead stock modal
+  const fetchDeadStockItems = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/inventory/discardeditems/");
+      const data = await response.json();
+      setDeadStockItems(data);
+    } catch (error) {
+      setDeadStockItems([]);
+    }
+  };
 
   return (
     <>
@@ -212,6 +215,7 @@ const Categories = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category Name</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Count</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dead Stock Count</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
@@ -230,31 +234,32 @@ const Categories = () => {
                               {category.item_count}
                             </span>
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {category.dead_stock_count}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm flex gap-2">
+                            <button
+                              onClick={() => handleEdit(category)}
+                              className="text-blue-600 border border-blue-600 rounded px-2 py-1 hover:bg-blue-600 hover:text-white transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(category.id)}
+                              className="text-red-600 border border-red-600 rounded px-2 py-1 hover:bg-red-600 hover:text-white transition-colors"
+                            >
+                              Delete
+                            </button>
+                            {/* Add View button for Dead Stock category */}
+                            {category.name.toLowerCase() === 'dead stock' && (
                               <button
-                                onClick={() => handleEdit(category)}
-                                className="text-blue-600 border border-blue-600 rounded px-2 py-1 hover:bg-blue-600 hover:text-white transition-colors"
+                                onClick={async () => { await fetchDeadStockItems(); setShowDeadStockModal(true); }}
+                                className="text-green-600 border border-green-600 rounded px-2 py-1 hover:bg-green-600 hover:text-white transition-colors"
                               >
-                                Edit
+                                View
                               </button>
-                              <button
-                                onClick={() => handleDelete(category.id)}
-                                disabled={category.item_count > 0}
-                                className={`border rounded px-2 py-1 transition-colors ${
-                                  category.item_count > 0
-                                    ? 'text-gray-400 border-gray-300 cursor-not-allowed'
-                                    : 'text-red-600 border-red-600 hover:bg-red-600 hover:text-white'
-                                }`}
-                                title={
-                                  category.item_count > 0
-                                    ? `Cannot delete category with ${category.item_count} item(s)`
-                                    : 'Delete category'
-                                }
-                              >
-                                Delete
-                              </button>
-                              
-                            </td>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -400,6 +405,47 @@ const Categories = () => {
                       </button>
                     </div>
                   </form>
+                </div>
+              </div>
+            )}
+
+            {/* Dead Stock Modal */}
+            {showDeadStockModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl relative">
+                  <button
+                    onClick={() => setShowDeadStockModal(false)}
+                    className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+                  >
+                    ✕
+                  </button>
+                  <h3 className="text-lg font-semibold mb-4">Dead Stock Details</h3>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Name</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {deadStockItems.length === 0 ? (
+                          <tr>
+                            <td colSpan="3" className="px-4 py-2 text-center text-gray-500">No dead stock found</td>
+                          </tr>
+                        ) : (
+                          deadStockItems.map((item) => (
+                            <tr key={item.id}>
+                              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{item.item?.name || 'N/A'}</td>
+                              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{item.location || 'N/A'}</td>
+                              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{item.quantity}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}

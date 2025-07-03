@@ -249,7 +249,8 @@ const Inventory = () => {
                   const discardedQty = discardedItems
                     .filter(d => d.item && d.item.name === itemName && d.location === selectedLocation)
                     .reduce((sum, d) => sum + d.quantity, 0);
-                  const netAvailable = qty - discardedQty;
+                  // FIX: Show correct available (do not subtract discards again)
+                  const netAvailable = qty;
                   return (
                     <div
                       key={itemName}
@@ -284,13 +285,13 @@ const Inventory = () => {
                           Item Name
                         </th>
                         <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Category
+                        </th>
+                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Quantity
                         </th>
                         <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {filterBy === "name" ? "Procurement ID" : "Item Name"}
-                        </th>
-                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Location
+                          Unit Price
                         </th>
                         <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
@@ -308,13 +309,13 @@ const Inventory = () => {
                               {item.item_name}
                             </td>
                             <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {item.category?.name || '--'}
+                            </td>
+                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {item.available_qty}
                             </td>
                             <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {item.order_number}
-                            </td>
-                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {item.location}
+                              {item.unit_price}
                             </td>
                             <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               <button

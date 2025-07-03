@@ -37,7 +37,7 @@ class Command(BaseCommand):
                 # Subtract discarded quantity from Main Store
                 discarded_from_main = sum(
                     d.quantity for d in discards
-                    if d.item_id == proc_item.item_id
+                    if d.item_id == proc_item.item_id and getattr(d, 'location_id', None) == main_store.id
                 )
                 main_store_qty = max(0, main_store_qty - discarded_from_main)
                 

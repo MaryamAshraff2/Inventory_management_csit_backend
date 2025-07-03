@@ -97,8 +97,7 @@ const DiscardedItems = () => {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-6">
               <div>
-                
-              <h3 className="text-lg font-semibold">
+                <h3 className="text-lg font-semibold">
                   Manage and track discarded inventory
                 </h3>
               </div>
@@ -157,19 +156,12 @@ const DiscardedItems = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.reason}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.discarded_by?.name || 'N/A'}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {/* <button 
-                                onClick={() => handleViewDetails(item)}
-                                className="text-xs text-blue-600 hover:text-blue-600 border border-blue-300 rounded px-2 py-1 hover:border-blue-400 transition-colors"
-                              >
-                                View
-                              </button> */}
                               <button 
                                 onClick={() => handleViewDetails(item)}
                                 className="text-blue-600 border border-blue-600 rounded px-2 py-1 text-xs hover:bg-blue-600 hover:text-white transition-colors"
                               >
                                 View
                               </button>
-
                             </td>
                           </tr>
                         ))

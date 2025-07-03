@@ -47,10 +47,11 @@ class ItemSerializer(serializers.ModelSerializer):
     )
     main_store_quantity = serializers.SerializerMethodField(read_only=True)
     total_quantity = serializers.SerializerMethodField(read_only=True)
+    dead_stock_quantity = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Item
-        fields = ['id', 'name', 'unit_price', 'category', 'category_id', 'main_store_quantity', 'total_quantity']
+        fields = ['id', 'name', 'unit_price', 'category', 'category_id', 'main_store_quantity', 'total_quantity', 'dead_stock_quantity']
 
     def get_main_store_quantity(self, obj):
         return obj.main_store_quantity
@@ -83,7 +84,6 @@ class ProcurementSerializer(serializers.ModelSerializer):
         )
 
     def get_total_amount(self, obj):
-        """Calculate total amount by summing all items' (quantity * unit_price)"""
         total = sum(item.quantity * item.unit_price for item in obj.items.all())
         return float(total)
 
@@ -110,6 +110,16 @@ class ProcurementSerializer(serializers.ModelSerializer):
                 if 'item' in item_entry:
                     # Existing item reference
                     item = Item.objects.get(pk=item_entry['item'])
+                    # Always update category and unit price from procurement form
+                    if 'category' in item_entry:
+                        try:
+                            category = Category.objects.get(id=item_entry['category'])
+                            item.category = category
+                        except Category.DoesNotExist:
+                            pass
+                    if 'unit_price' in item_entry:
+                        item.unit_price = item_entry['unit_price']
+                    item.save(update_fields=["category", "unit_price"])
                 elif 'item_data' in item_entry:
                     # New item to be created
                     item_data = item_entry['item_data']
@@ -312,7 +322,17 @@ class DiscardedItemSerializer(serializers.ModelSerializer):
                     batch.delete()
 
             # STEP 4: Create the discarded item record
-            return super().create(validated_data)
+            discarded_item = super().create(validated_data)
+
+            # STEP 5: Increment dead stock for item and category, but do NOT change item.category
+            item.dead_stock_quantity = getattr(item, 'dead_stock_quantity', 0) + quantity
+            item.save(update_fields=["dead_stock_quantity"])
+            from .models import Category
+            dead_stock_category = Category.get_dead_stock_category()
+            dead_stock_category.dead_stock_count += quantity
+            dead_stock_category.save(update_fields=["dead_stock_count"])
+
+            return discarded_item
 
 class ReportSerializer(serializers.ModelSerializer):
     generated_by_name = serializers.CharField(source='generated_by.name', read_only=True)

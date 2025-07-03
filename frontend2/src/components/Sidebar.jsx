@@ -129,9 +129,9 @@ const Sidebar = () => {
           </li>
           <li>
             <Link 
-              to="/DiscardedItems" 
+              to="/discardeditems" 
               className={`flex items-center p-2 rounded hover:bg-gray-700 ${
-                isActive('/DiscardedItems') ? 'bg-gray-700' : ''
+                isActive('/discardeditems') ? 'bg-gray-700' : ''
               }`}
             >
               <FaTrashAlt className="mr-3" />
