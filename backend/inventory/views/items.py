@@ -45,7 +45,7 @@ class ItemViewSet(viewsets.ModelViewSet):
                 locations_with_stock.append({
                     'id': inventory.location.id,
                     'name': inventory.location.name,
-                    'quantity': inventory.quantity
+                    'available_quantity': inventory.quantity
                 })
             
             return Response({
@@ -84,7 +84,7 @@ class ItemViewSet(viewsets.ModelViewSet):
                 items_at_location.append({
                     'item_id': inventory.item.id,
                     'item_name': inventory.item.name,
-                    'quantity': inventory.quantity,
+                    'available_quantity': inventory.quantity,
                     'location_id': location.id,
                     'location': location.name,
                     'category': inventory.item.category.name

@@ -170,7 +170,7 @@ const AddDiscardedItemForm = ({ show, onClose, onSubmit, locations = [], users =
                   </option>
                   {filteredItems.map(item => (
                     <option key={item.item_id} value={item.item_id}>
-                      {item.item_name} (Available: {item.available_qty})
+                      {item.item_name} ({item.available_quantity})
                     </option>
                   ))}
                 </select>

@@ -192,7 +192,7 @@ const StockMovementForm = ({ show, onClose, onSubmit, items = [], locations = []
                   </option>
                   {filteredFromLocations.map(loc => (
                     <option key={loc.id} value={loc.id}>
-                      {loc.name} ({loc.available_quantity} available)
+                      {loc.name} ({loc.available_quantity})
                     </option>
                   ))}
                 </select>
