@@ -18,10 +18,28 @@ from ..serializers import LocationSerializer
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q
+from ..utils import log_audit_action
 
 class LocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        log_audit_action('Location Created', 'Location', f"Created location '{response.data.get('name')}'")
+        return response
+
+    def update(self, request, *args, **kwargs):
+        response = super().update(request, *args, **kwargs)
+        log_audit_action('Location Updated', 'Location', f"Updated location '{response.data.get('name')}'")
+        return response
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        name = instance.name
+        response = super().destroy(request, *args, **kwargs)
+        log_audit_action('Location Deleted', 'Location', f"Deleted location '{name}'")
+        return response
 
     @action(detail=True, methods=['post'])
     def assign_department(self, request, pk=None):
@@ -33,6 +51,7 @@ class LocationViewSet(viewsets.ModelViewSet):
                 department = Department.objects.get(id=department_id)
                 location.department = department
                 location.save()
+                log_audit_action('Location Department Assigned', 'Location', f"Assigned department '{department.name}' to location '{location.name}'")
                 return Response({'status': 'department assigned'})
             except Department.DoesNotExist:
                 return Response({'error': 'Department not found'}, status=404)

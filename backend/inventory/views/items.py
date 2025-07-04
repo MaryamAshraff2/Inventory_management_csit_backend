@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from ..models import Procurement, ProcurementItem, StockMovement, DiscardedItem, Location
 from django.db.models import F, Sum
 from inventory.models import TotalInventory
+from ..utils import log_audit_action
 
 class ItemViewSet(viewsets.ModelViewSet):
     queryset = Item.objects.all()
@@ -100,6 +101,23 @@ class ItemViewSet(viewsets.ModelViewSet):
             return Response({"error": "Location not found"}, status=404)
         except Exception as e:
             return Response({"error": str(e)}, status=500)
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        log_audit_action('Item Created', 'Item', f"Created item '{response.data.get('name')}'")
+        return response
+
+    def update(self, request, *args, **kwargs):
+        response = super().update(request, *args, **kwargs)
+        log_audit_action('Item Updated', 'Item', f"Updated item '{response.data.get('name')}'")
+        return response
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        name = instance.name
+        response = super().destroy(request, *args, **kwargs)
+        log_audit_action('Item Deleted', 'Item', f"Deleted item '{name}'")
+        return response
 
 @api_view(['GET'])
 def get_item_availability(request):

@@ -1,44 +1,229 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
+import UserDashboard from "./pages/UserDashboard"; // user-specific dashboard
+import UserStockRequests from "./pages/UserStockRequests";
 import Departments from "./pages/Departments";
 import Users from "./pages/Users";
-import Categories from './pages/categories';
-import Items from './pages/Items';
+import Categories from "./pages/categories";
+import Items from "./pages/Items";
 import Locations from "./pages/Locations";
 import Procurements from "./pages/procurements";
-import DiscardedItems from "./pages/discardeditems";
+import DiscardedItems from "./pages/DiscardedItems";
 import Loginpage from "./pages/loginpage";
 import Inventory from "./pages/Inventory";
-import StockMovement from './pages/StockMovement';
-import SendingStockRequest from './UserView/SendingStockReq';
-import StockRequestsManagement from './pages/StockRequest';
+import UserInventory from "./pages/UserInventory";
+import StockMovement from "./pages/StockMovement";
+import SendingStockRequest from "./UserView/SendingStockReq";
+import StockRequestsManagement from "./pages/StockRequest";
 import Reports from "./pages/Reports";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AuditLogs from "./pages/AuditLogs";
 
 function App() {
-  const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+  // Determine which dashboard to show based on userType
+  const getDashboardComponent = () => {
+    const userType = localStorage.getItem("userType");
+    return userType === "admin" ? <Dashboard /> : <UserDashboard />;
+  };
 
   return (
     <Router>
       <div className="flex h-screen bg-gray-100">
         <Routes>
-          <Route 
-            path="/" 
-            element={isLoggedIn ? <Dashboard /> : <Navigate to="/loginpage" />} 
-          />
+          {/* Public route */}
           <Route path="/loginpage" element={<Loginpage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/departments" element={<Departments />} />
-          <Route path="/locations" element={<Locations />} />
-          <Route path="/users" element={<Users />} />
-          <Route path="/categories" element={<Categories />} />
-          <Route path="/items" element={<Items />} />
-          <Route path="/procurements" element={<Procurements />} />
-          <Route path="/discardeditems" element={<DiscardedItems />} />
-          <Route path="/inventory" element={<Inventory/>} />
-          <Route path="/stock-movements" element={<StockMovement />} />
-          <Route path="/sending-stock-requests" element={<SendingStockRequest />} />
-          <Route path="/stock-requests" element={<StockRequestsManagement />} />
-          <Route path="/reports" element={<Reports />} />
+
+          {/* Admin Dashboard Route */}
+          <Route
+            path="/admin-dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Legacy dashboard route - redirect based on user type */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Navigate
+                  to={
+                    localStorage.getItem("userType") === "admin"
+                      ? "/admin-dashboard"
+                      : "/user-dashboard"
+                  }
+                />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* User Dashboard Route */}
+          <Route
+            path="/user-dashboard"
+            element={
+              <ProtectedRoute>
+                <UserDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Legacy user dashboard route */}
+          <Route
+            path="/userdashboard"
+            element={
+              <ProtectedRoute>
+                <Navigate to="/user-dashboard" />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/user-stock-requests"
+            element={
+              <ProtectedRoute>
+                <UserStockRequests />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin-only routes (accessible if userType is 'admin') */}
+          <Route
+            path="/departments"
+            element={
+              <ProtectedRoute>
+                <Departments />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/locations"
+            element={
+              <ProtectedRoute>
+                <Locations />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <ProtectedRoute>
+                <Users />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/categories"
+            element={
+              <ProtectedRoute>
+                <Categories />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/items"
+            element={
+              <ProtectedRoute>
+                <Items />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/procurements"
+            element={
+              <ProtectedRoute>
+                <Procurements />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Shared or user-accessible routes */}
+          <Route
+            path="/discardeditems"
+            element={
+              <ProtectedRoute>
+                <DiscardedItems />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inventory"
+            element={
+              <ProtectedRoute>
+                <Inventory />
+              </ProtectedRoute>
+            }
+          />
+           <Route
+            path="/user-inventory"
+            element={
+              <ProtectedRoute>
+                <UserInventory />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/stock-movements"
+            element={
+              <ProtectedRoute>
+                <StockMovement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sending-stock-requests"
+            element={
+              <ProtectedRoute>
+                <SendingStockRequest />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/stock-requests"
+            element={
+              <ProtectedRoute>
+                <StockRequestsManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <Reports />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/audit-logs"
+            element={
+              <ProtectedRoute>
+                <AuditLogs />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Catch-all route */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Navigate
+                  to={
+                    localStorage.getItem("userType") === "admin"
+                      ? "/admin-dashboard"
+                      : "/user-dashboard"
+                  }
+                />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </div>
     </Router>

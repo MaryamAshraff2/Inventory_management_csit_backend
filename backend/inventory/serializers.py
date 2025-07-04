@@ -3,7 +3,7 @@ from django.db import transaction
 import json
 from .models import (
     User, Department, Category, Item, Procurement, Location, ProcurementItem,
-    StockMovement, SendingStockRequest, DiscardedItem, Report, TotalInventory, InventoryByLocation
+    StockMovement, SendingStockRequest, DiscardedItem, Report, TotalInventory, InventoryByLocation, AuditLog
 )
 import logging
 
@@ -379,3 +379,12 @@ class TotalInventoryRowSerializer(serializers.Serializer):
                 'notes': m.notes,
             }
         return None
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    performed_by = UserSerializer(read_only=True)
+    performed_by_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='performed_by', write_only=True)
+
+    class Meta:
+        model = AuditLog
+        fields = ['id', 'action', 'entity_type', 'performed_by', 'performed_by_id', 'timestamp', 'details']
+        read_only_fields = ['id', 'timestamp', 'performed_by']

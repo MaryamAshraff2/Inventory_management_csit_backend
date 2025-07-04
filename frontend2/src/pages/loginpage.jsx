@@ -149,17 +149,42 @@ const LoginPage = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const { username, password: correctPassword } = predefinedCreds[userType];
+    setError('');
+    
+    try {
+      const response = await fetch('http://localhost:8000/inventory/login/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          portalID: portalID,
+          password: password,
+          userType: userType === 'admin' ? 'Admin' : 'User'
+        }),
+      });
 
-    if (portalID === username && password === correctPassword) {
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('userType', userType);
-      setError('');
-      navigate('/dashboard');
-    } else {
-      setError('Invalid credentials');
+      const data = await response.json();
+
+      if (data.success) {
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('userType', userType);
+        localStorage.setItem('portalID', portalID);
+        
+        // Navigate based on user type
+        if (userType === 'admin') {
+          navigate('/admin-dashboard');
+        } else {
+          navigate('/user-dashboard');
+        }
+      } else {
+        setError(data.message || 'Invalid credentials');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('Network error. Please try again.');
     }
   };
 

@@ -203,6 +203,16 @@ export const reportsAPI = {
     body: JSON.stringify({ filters }),
   }),
 
+  generateCategoriesReport: (filters) => apiRequest('/reports/generate_categories_report/', {
+    method: 'POST',
+    body: JSON.stringify({ filters }),
+  }),
+
+  generateRegisterReport: (filters) => apiRequest('/reports/generate_register_report/', {
+    method: 'POST',
+    body: JSON.stringify({ filters }),
+  }),
+
   // Export reports
   exportPdf: async (reportId) => {
     const url = `${API_BASE_URL}/reports/${reportId}/export_pdf/`;
@@ -296,4 +306,50 @@ export const locationsAPI = {
   getAll: () => apiRequest('/locations/'),
   getById: (id) => apiRequest(`/locations/${id}/`),
   getByProcurement: (procurementId) => apiRequest(`/locations/by_procurement/?procurement_id=${procurementId}`),
+};
+
+export const procurementsAPI = {
+  getProcurementTypes: () => apiRequest('/procurements/procurement_types/'),
+  getSuppliers: () => apiRequest('/procurements/suppliers/'),
+};
+
+export const auditLogsAPI = {
+  getAll: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    const endpoint = `/audit-logs/${query ? `?${query}` : ''}`;
+    return apiRequest(endpoint);
+  },
+  getActions: async () => apiRequest('/audit-logs/actions/'),
+  getEntities: async () => apiRequest('/audit-logs/entities/'),
+  getUsers: async () => apiRequest('/audit-logs/users/'),
+  exportCSV: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    const url = `${API_BASE_URL}/audit-logs/export/csv/${query ? `?${query}` : ''}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to export CSV');
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = 'audit_logs.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  },
+  exportPDF: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    const url = `${API_BASE_URL}/audit-logs/export/pdf/${query ? `?${query}` : ''}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to export PDF');
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = 'audit_logs.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  },
 }; 

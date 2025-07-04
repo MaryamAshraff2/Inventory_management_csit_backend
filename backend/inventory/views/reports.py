@@ -18,7 +18,7 @@ from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-from ..models import Report, Procurement, StockMovement, Item, SendingStockRequest, DiscardedItem, User
+from ..models import Report, Procurement, StockMovement, Item, SendingStockRequest, DiscardedItem, User, InventoryByLocation, Location
 from ..serializers import ReportSerializer
 
 
@@ -62,6 +62,10 @@ class ReportViewSet(viewsets.ModelViewSet):
 
     def _generate_pdf_content(self, report_data, report_type):
         """Generate professional PDF content based on report type and data"""
+        # Special handling for Register report
+        if report_type == 'register':
+            return self._generate_register_pdf_content(report_data)
+        
         buffer = BytesIO()
         doc = SimpleDocTemplate(
             buffer,
@@ -127,7 +131,7 @@ class ReportViewSet(viewsets.ModelViewSet):
             logo_found = False
             for logo_path in logo_paths:
                 if os.path.exists(logo_path):
-                    logo = Image(logo_path, width=2*inch, height=0.75*inch)
+                    logo = Image(logo_path, width=1*inch, height=1*inch)
                     elements.append(logo)
                     elements.append(Spacer(1, 10))
                     logo_found = True
@@ -145,7 +149,8 @@ class ReportViewSet(viewsets.ModelViewSet):
             elements.append(Spacer(1, 10))
         
         # Add title
-        title = Paragraph(f"{report_type.replace('_', ' ').title()} Report", styles['CustomTitle'])
+        title_text = f"{report_type.replace('_', ' ').title()} Report"
+        title = Paragraph(title_text, styles['CustomTitle'])
         elements.append(title)
         
         # Add horizontal line
@@ -215,14 +220,23 @@ class ReportViewSet(viewsets.ModelViewSet):
                         # Format currency
                         elif isinstance(value, (int, float)) and any(currency_word in header.lower() for currency_word in ['price', 'amount', 'value']):
                             value = f"${value:,.2f}"
+                        # Format quantity dict
+                        elif header.lower() == 'quantity' and isinstance(value, dict):
+                            value = f"Received: {value.get('received', '')}, Issued: {value.get('issued', '')}, Balance: {value.get('balance', '')}"
                         # Format large numbers with commas
                         elif isinstance(value, int) and value > 1000:
                             value = f"{value:,}"
-                        row.append(str(value))
+                        # Wrap long text in Paragraph for word wrapping and row height
+                        if isinstance(value, str) and (len(value) > 15 or '\n' in value or ',' in value):
+                            value = Paragraph(value, styles['Normal'])
+                        row.append(value)
                     table_data.append(row)
                 
                 # Create table with alternating row colors
-                table = Table(table_data, repeatRows=1)
+                page_width = A4[0] - doc.leftMargin - doc.rightMargin
+                num_columns = len(table_data[0])
+                col_width = page_width / num_columns
+                table = Table(table_data, colWidths=[col_width]*num_columns, repeatRows=1)
                 table_style = [
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2E5984')),  # Header background
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),  # Header text
@@ -236,7 +250,10 @@ class ReportViewSet(viewsets.ModelViewSet):
                     ('FONTSIZE', (0, 1), (-1, -1), 10),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D3D3D3')),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('WORDWRAP', (0, 0), (-1, -1), 'CJK'),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                 ]
                 # Dynamically add alternating row colors for even rows (starting from row 2, i.e., index 2)
                 for i in range(2, len(table_data), 2):
@@ -258,8 +275,260 @@ class ReportViewSet(viewsets.ModelViewSet):
             color=colors.HexColor('#2E5984'),
             spaceAfter=0.2*inch
         ))
-        footer_text = f"Confidential - {datetime.now().year} © Your Company Name"
+        footer_text = f"Confidential - {datetime.now().year} © NED UET"
         elements.append(Paragraph(footer_text, styles['Footer']))
+        
+        # Build PDF
+        doc.build(elements)
+        buffer.seek(0)
+        return buffer
+
+    def _generate_register_pdf_content(self, report_data):
+        """Generate specialized PDF content for Register report with proper table layout"""
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            leftMargin=0.5*inch,
+            rightMargin=0.5*inch,
+            topMargin=0.5*inch,
+            bottomMargin=0.5*inch
+        )
+        elements = []
+        
+        # Custom styles
+        styles = getSampleStyleSheet()
+        
+        # Add custom styles for Register report
+        styles.add(ParagraphStyle(
+            'RegisterTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            spaceAfter=15,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold',
+            textColor=colors.HexColor('#2E5984')
+        ))
+        
+        styles.add(ParagraphStyle(
+            'RegisterHeader',
+            parent=styles['Normal'],
+            fontSize=9,
+            fontName='Helvetica-Bold',
+            alignment=TA_CENTER,
+            spaceAfter=2,
+            spaceBefore=2,
+            leading=11
+        ))
+        
+        styles.add(ParagraphStyle(
+            'RegisterSubHeader',
+            parent=styles['Normal'],
+            fontSize=8,
+            fontName='Helvetica-Bold',
+            alignment=TA_CENTER,
+            spaceAfter=1,
+            spaceBefore=1,
+            leading=10
+        ))
+        
+        styles.add(ParagraphStyle(
+            'RegisterCell',
+            parent=styles['Normal'],
+            fontSize=8,
+            fontName='Helvetica',
+            alignment=TA_CENTER,
+            spaceAfter=1,
+            spaceBefore=1,
+            leading=10
+        ))
+        
+        # Add company logo and header
+        try:
+            # Try multiple possible paths for the logo
+            logo_paths = [
+                "nedlogo.jpeg",
+                "inventory/views/nedlogo.jpeg",
+                os.path.join(os.path.dirname(__file__), "nedlogo.jpeg"),
+                os.path.join(settings.BASE_DIR, "inventory", "views", "nedlogo.jpeg")
+            ]
+            
+            logo_found = False
+            for logo_path in logo_paths:
+                if os.path.exists(logo_path):
+                    logo = Image(logo_path, width=1*inch, height=1*inch)
+                    elements.append(logo)
+                    elements.append(Spacer(1, 10))
+                    logo_found = True
+                    break
+                    
+            if not logo_found:
+                # Add a text header instead
+                header_text = Paragraph("CSIT Inventory Management System", styles['RegisterTitle'])
+                elements.append(header_text)
+                elements.append(Spacer(1, 10))
+        except Exception as e:
+            # Add a text header instead if logo fails
+            header_text = Paragraph("CSIT Inventory Management System", styles['RegisterTitle'])
+            elements.append(header_text)
+            elements.append(Spacer(1, 10))
+        
+        # Add company header
+        header_text = Paragraph("NED UNIVERSITY OF ENGINEERING AND TECHNOLOGY, KARACHI", styles['RegisterTitle'])
+        elements.append(header_text)
+        
+        # Add document code
+        doc_code = Paragraph("Document Code: F/SOP/SD 01/52/01", styles['RegisterCell'])
+        elements.append(doc_code)
+        elements.append(Spacer(1, 10))
+        
+        # Add report metadata
+        metadata = [
+            ["Generated on:", str(report_data.get('generated_at', 'N/A'))],
+            ["Total Records:", str(report_data.get('total_records', 0))],
+        ]
+        
+        metadata_table = Table(metadata, colWidths=[1.5*inch, 3*inch])
+        metadata_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#1E3F66')),
+            ('TEXTCOLOR', (1, 0), (1, -1), colors.black),
+            ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+        
+        elements.append(metadata_table)
+        elements.append(Spacer(1, 15))
+        
+        # Generate Register table
+        if report_data.get('data'):
+            data = report_data['data']
+            if data and len(data) > 0:
+                # Define column widths for Register table (11 columns total)
+                page_width = A4[0] - doc.leftMargin - doc.rightMargin
+                # Calculate total width needed and adjust proportionally
+                total_width = 8.8*inch  # Sum of all column widths
+                scale_factor = page_width / total_width
+                
+                col_widths = [
+                    0.7*inch * scale_factor,  # Date
+                    0.8*inch * scale_factor,  # Received/Issued
+                    1.0*inch * scale_factor,  # Voucher No
+                    1.1*inch * scale_factor,  # Particulars
+                    0.7*inch * scale_factor,  # Unit
+                    0.6*inch * scale_factor,  # Unit Price
+                    0.8*inch * scale_factor,  # Total Cost
+                    0.5*inch * scale_factor,  # Received (Quantity)
+                    0.5*inch * scale_factor,  # Issued (Quantity)
+                    0.5*inch * scale_factor,  # Balance (Quantity)
+                    0.9*inch * scale_factor,  # Remarks
+                ]
+                
+                # Create header rows with proper multi-line headers
+                header_row1 = [
+                    Paragraph("Date", styles['RegisterHeader']),
+                    Paragraph("Received/<br/>Issued", styles['RegisterHeader']),
+                    Paragraph("Voucher / Cash Memo /<br/>Requisition / Purchase<br/>Order No.", styles['RegisterHeader']),
+                    Paragraph("Particulars", styles['RegisterHeader']),
+                    Paragraph("Accounting /<br/>Measuring Unit", styles['RegisterHeader']),
+                    Paragraph("Unit Price", styles['RegisterHeader']),
+                    Paragraph("Total Cost<br/>(with taxes)", styles['RegisterHeader']),
+                    Paragraph("Quantity", styles['RegisterHeader']),
+                    Paragraph("", styles['RegisterHeader']),
+                    Paragraph("", styles['RegisterHeader']),
+                    Paragraph("Remarks / Initials of<br/>Authorized Persons", styles['RegisterHeader']),
+                ]
+                
+                header_row2 = [
+                    Paragraph("", styles['RegisterSubHeader']),
+                    Paragraph("", styles['RegisterSubHeader']),
+                    Paragraph("", styles['RegisterSubHeader']),
+                    Paragraph("", styles['RegisterSubHeader']),
+                    Paragraph("", styles['RegisterSubHeader']),
+                    Paragraph("", styles['RegisterSubHeader']),
+                    Paragraph("", styles['RegisterSubHeader']),
+                    Paragraph("Received", styles['RegisterSubHeader']),
+                    Paragraph("Issued", styles['RegisterSubHeader']),
+                    Paragraph("Balance", styles['RegisterSubHeader']),
+                    Paragraph("", styles['RegisterSubHeader']),
+                ]
+                
+                # Prepare table data
+                table_data = [header_row1, header_row2]
+                
+                for item in data:
+                    row = [
+                        Paragraph(item.get('date', ''), styles['RegisterCell']),
+                        Paragraph(item.get('receivedIssued', ''), styles['RegisterCell']),
+                        Paragraph(item.get('voucherNo', ''), styles['RegisterCell']),
+                        Paragraph(item.get('particulars', ''), styles['RegisterCell']),
+                        Paragraph(item.get('unit', ''), styles['RegisterCell']),
+                        Paragraph(f"${item.get('unitPrice', 0):,.2f}", styles['RegisterCell']),
+                        Paragraph(f"${item.get('totalCost', 0):,.2f}", styles['RegisterCell']),
+                        Paragraph(str(item.get('quantity', {}).get('received', '')), styles['RegisterCell']),
+                        Paragraph(str(item.get('quantity', {}).get('issued', '')), styles['RegisterCell']),
+                        Paragraph(str(item.get('quantity', {}).get('balance', '')), styles['RegisterCell']),
+                        Paragraph(item.get('remarks', ''), styles['RegisterCell']),
+                    ]
+                    table_data.append(row)
+                
+                # Create table
+                table = Table(table_data, colWidths=col_widths, repeatRows=2)
+                
+                # Define table style with proper spacing and formatting
+                table_style = [
+                    # Header styling (first two rows)
+                    ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#2E5984')),
+                    ('TEXTCOLOR', (0, 0), (-1, 1), colors.whitesmoke),
+                    ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 1), 9),
+                    ('ALIGN', (0, 0), (-1, 1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, 1), 'MIDDLE'),
+                    ('TOPPADDING', (0, 0), (-1, 1), 6),
+                    ('BOTTOMPADDING', (0, 0), (-1, 1), 6),
+                    ('LEFTPADDING', (0, 0), (-1, 1), 3),
+                    ('RIGHTPADDING', (0, 0), (-1, 1), 3),
+                    
+                    # Data row styling
+                    ('BACKGROUND', (0, 2), (-1, -1), colors.white),
+                    ('TEXTCOLOR', (0, 2), (-1, -1), colors.black),
+                    ('FONTNAME', (0, 2), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 2), (-1, -1), 8),
+                    ('ALIGN', (0, 2), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 2), (-1, -1), 'MIDDLE'),
+                    ('TOPPADDING', (0, 2), (-1, -1), 4),
+                    ('BOTTOMPADDING', (0, 2), (-1, -1), 4),
+                    ('LEFTPADDING', (0, 2), (-1, -1), 2),
+                    ('RIGHTPADDING', (0, 2), (-1, -1), 2),
+                    
+                    # Grid and borders
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D3D3D3')),
+                    ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#2E5984')),
+                    
+                    # Word wrapping for all cells
+                    ('WORDWRAP', (0, 0), (-1, -1), 'CJK'),
+                    
+                    # Merge quantity header cells
+                    ('SPAN', (7, 0), (9, 0)),  # Merge "Quantity" across 3 columns
+                ]
+                
+                # Add alternating row colors for data rows
+                for i in range(3, len(table_data), 2):
+                    table_style.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8F9FA')))
+                
+                table.setStyle(TableStyle(table_style))
+                elements.append(table)
+            else:
+                # Add a message when no data is available
+                elements.append(Paragraph("No data available for the selected filters.", styles['RegisterCell']))
+        
+        # Add footer
+        elements.append(Spacer(1, 20))
+        footer_text = f"Confidential - {datetime.now().year} © NED UET"
+        elements.append(Paragraph(footer_text, styles['RegisterCell']))
         
         # Build PDF
         doc.build(elements)
@@ -378,743 +647,4 @@ class ReportViewSet(viewsets.ModelViewSet):
         buffer = BytesIO()
         wb.save(buffer)
         buffer.seek(0)
-        return buffer
-
-    @action(detail=False, methods=['post'])
-    def generate_procurement_report(self, request):
-        """Generate procurement report with filters"""
-        try:
-            filters = request.data.get('filters', {})
-            
-            # Build query based on filters
-            queryset = Procurement.objects.all()
-            
-            start_date = self._parse_date_filter(filters.get('startDate'))
-            end_date = self._parse_date_filter(filters.get('endDate'))
-            
-            if start_date:
-                queryset = queryset.filter(created_at__gte=start_date)
-            if end_date:
-                # For end date, we want to include the entire day
-                end_date = timezone.make_aware(
-                    datetime.combine(end_date.date(), datetime.max.time()),
-                    timezone=timezone.get_current_timezone()
-                )
-                queryset = queryset.filter(created_at__lte=end_date)
-            if filters.get('item'):
-                queryset = queryset.filter(item__id=filters['item'])
-            
-            # Create report record
-            report = Report.objects.create(
-                report_type='procurement',
-                filters=filters,
-                generated_by=self._get_generated_by_user(request)
-            )
-            
-            # Prepare report data
-            report_data = {
-                'report_id': report.id,
-                'report_type': 'procurement',
-                'generated_at': report.generated_at,
-                'filters': filters,
-                'total_records': queryset.count(),
-                'total_amount': sum(float(p.unit_price) * p.quantity for p in queryset),
-                'data': []
-            }
-            
-            for procurement in queryset:
-                report_data['data'].append({
-                    'order_number': procurement.order_number,
-                    'item_name': procurement.item.name,
-                    'quantity': procurement.quantity,
-                    'unit_price': float(procurement.unit_price),
-                    'total_amount': float(procurement.unit_price) * procurement.quantity,
-                    'supplier': procurement.supplier,
-                    'order_date': procurement.order_date,
-                    'created_at': procurement.created_at
-                })
-            
-            return Response(report_data, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response(
-                {'error': f'Failed to generate procurement report: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=False, methods=['post'])
-    def generate_stock_movement_report(self, request):
-        """Generate stock movement report with filters"""
-        try:
-            filters = request.data.get('filters', {})
-            
-            queryset = StockMovement.objects.all()
-            
-            start_date = self._parse_date_filter(filters.get('startDate'))
-            end_date = self._parse_date_filter(filters.get('endDate'))
-            
-            if start_date:
-                queryset = queryset.filter(movement_date__gte=start_date.date())
-            if end_date:
-                queryset = queryset.filter(movement_date__lte=end_date.date())
-            if filters.get('user'):
-                queryset = queryset.filter(received_by__id=filters['user'])
-            if filters.get('item'):
-                queryset = queryset.filter(item__id=filters['item'])
-            
-            report = Report.objects.create(
-                report_type='stock_movement',
-                filters=filters,
-                generated_by=self._get_generated_by_user(request)
-            )
-            
-            report_data = {
-                'report_id': report.id,
-                'report_type': 'stock_movement',
-                'generated_at': report.generated_at,
-                'filters': filters,
-                'total_records': queryset.count(),
-                'data': []
-            }
-            
-            for movement in queryset:
-                report_data['data'].append({
-                    'item_name': movement.item.name,
-                    'quantity': movement.quantity,
-                    'from_location': movement.from_location.name,
-                    'to_location': movement.to_location.name,
-                    'movement_date': movement.movement_date,
-                    'received_by': movement.received_by.name,
-                    'notes': movement.notes
-                })
-            
-            return Response(report_data, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response(
-                {'error': f'Failed to generate stock movement report: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=False, methods=['post'])
-    def generate_inventory_report(self, request):
-        """Generate inventory report with filters"""
-        try:
-            filters = request.data.get('filters', {})
-            
-            queryset = Item.objects.all()
-            
-            if filters.get('item'):
-                queryset = queryset.filter(id=filters['item'])
-            
-            report = Report.objects.create(
-                report_type='inventory',
-                filters=filters,
-                generated_by=self._get_generated_by_user(request)
-            )
-            
-            report_data = {
-                'report_id': report.id,
-                'report_type': 'inventory',
-                'generated_at': report.generated_at,
-                'filters': filters,
-                'total_items': queryset.count(),
-                'total_value': sum(float(item.unit_price) * item.quantity for item in queryset),
-                'data': []
-            }
-            
-            for item in queryset:
-                report_data['data'].append({
-                    'item_name': item.name,
-                    'category': item.category.name,
-                    'quantity': item.quantity,
-                    'unit_price': float(item.unit_price),
-                    'total_value': float(item.unit_price) * item.quantity
-                })
-            
-            return Response(report_data, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response(
-                {'error': f'Failed to generate inventory report: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=False, methods=['post'])
-    def generate_stock_requests_report(self, request):
-        """Generate stock requests report with filters"""
-        try:
-            filters = request.data.get('filters', {})
-            
-            queryset = SendingStockRequest.objects.all()
-            
-            start_date = self._parse_date_filter(filters.get('startDate'))
-            end_date = self._parse_date_filter(filters.get('endDate'))
-            
-            if start_date:
-                queryset = queryset.filter(created_at__gte=start_date)
-            if end_date:
-                # For end date, we want to include the entire day
-                end_date = timezone.make_aware(
-                    datetime.combine(end_date.date(), datetime.max.time()),
-                    timezone=timezone.get_current_timezone()
-                )
-                queryset = queryset.filter(created_at__lte=end_date)
-            if filters.get('status'):
-                queryset = queryset.filter(status=filters['status'])
-            if filters.get('user'):
-                queryset = queryset.filter(requested_by__id=filters['user'])
-            if filters.get('item'):
-                queryset = queryset.filter(item__id=filters['item'])
-            
-            report = Report.objects.create(
-                report_type='stock_requests',
-                filters=filters,
-                generated_by=self._get_generated_by_user(request)
-            )
-            
-            report_data = {
-                'report_id': report.id,
-                'report_type': 'stock_requests',
-                'generated_at': report.generated_at,
-                'filters': filters,
-                'total_records': queryset.count(),
-                'pending_requests': queryset.filter(status='Pending').count(),
-                'approved_requests': queryset.filter(status='Approved').count(),
-                'rejected_requests': queryset.filter(status='Rejected').count(),
-                'data': []
-            }
-            
-            for request_item in queryset:
-                report_data['data'].append({
-                    'item_name': request_item.item.name,
-                    'quantity': request_item.quantity,
-                    'status': request_item.status,
-                    'requested_by': str(request_item.requested_by) if request_item.requested_by else 'Unknown',
-                    'created_at': request_item.created_at
-                })
-            
-            return Response(report_data, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response(
-                {'error': f'Failed to generate stock requests report: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=False, methods=['post'])
-    def generate_discarded_items_report(self, request):
-        """Generate discarded items report with filters"""
-        try:
-            filters = request.data.get('filters', {})
-            
-            queryset = DiscardedItem.objects.all()
-            
-            start_date = self._parse_date_filter(filters.get('startDate'))
-            end_date = self._parse_date_filter(filters.get('endDate'))
-            
-            if start_date:
-                queryset = queryset.filter(date__gte=start_date.date())
-            if end_date:
-                queryset = queryset.filter(date__lte=end_date.date())
-            if filters.get('reason'):
-                queryset = queryset.filter(reason=filters['reason'])
-            if filters.get('user'):
-                queryset = queryset.filter(discarded_by__id=filters['user'])
-            if filters.get('item'):
-                queryset = queryset.filter(item__id=filters['item'])
-            
-            report = Report.objects.create(
-                report_type='discarded_items',
-                filters=filters,
-                generated_by=self._get_generated_by_user(request)
-            )
-            
-            report_data = {
-                'report_id': report.id,
-                'report_type': 'discarded_items',
-                'generated_at': report.generated_at,
-                'filters': filters,
-                'total_records': queryset.count(),
-                'total_quantity_discarded': sum(item.quantity for item in queryset),
-                'data': []
-            }
-            
-            for discarded_item in queryset:
-                report_data['data'].append({
-                    'item_name': discarded_item.item.name,
-                    'location': discarded_item.location.name,
-                    'quantity': discarded_item.quantity,
-                    'reason': discarded_item.reason,
-                    'date': discarded_item.date,
-                    'discarded_by': discarded_item.discarded_by.name if discarded_item.discarded_by else 'Unknown',
-                    'notes': discarded_item.notes
-                })
-            
-            return Response(report_data, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response(
-                {'error': f'Failed to generate discarded items report: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=True, methods=['post'])
-    def export_pdf(self, request, pk=None):
-        """Export report as PDF"""
-        try:
-            # Get the report object
-            try:
-                report = self.get_object()
-            except Exception as e:
-                print(f"Error getting report object: {str(e)}")
-                # Try to get the report directly using pk
-                if pk:
-                    try:
-                        report = Report.objects.get(id=pk)
-                    except Report.DoesNotExist:
-                        return Response(
-                            {'error': f'Report with ID {pk} not found'}, 
-                            status=status.HTTP_404_NOT_FOUND
-                        )
-                else:
-                    return Response(
-                        {'error': 'Report ID not provided'}, 
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            
-            # Get the report data based on report type
-            report_data = None
-            filters = report.filters or {}
-            
-            print(f"Exporting PDF for report {report.id} of type {report.report_type}")
-            print(f"Filters: {filters}")
-            
-            if report.report_type == 'procurement':
-                queryset = Procurement.objects.all()
-                if filters.get('startDate'):
-                    start_date = self._parse_date_filter(filters['startDate'])
-                    if start_date:
-                        queryset = queryset.filter(created_at__gte=start_date)
-                if filters.get('endDate'):
-                    end_date = self._parse_date_filter(filters['endDate'])
-                    if end_date:
-                        end_date = timezone.make_aware(
-                            datetime.combine(end_date.date(), datetime.max.time()),
-                            timezone=timezone.get_current_timezone()
-                        )
-                        queryset = queryset.filter(created_at__lte=end_date)
-                if filters.get('item'):
-                    queryset = queryset.filter(item__id=filters['item'])
-                
-                print(f"Procurement queryset count: {queryset.count()}")
-                
-                report_data = {
-                    'report_id': report.id,
-                    'report_type': 'procurement',
-                    'generated_at': report.generated_at,
-                    'filters': filters,
-                    'total_records': queryset.count(),
-                    'total_amount': sum(float(p.unit_price) * p.quantity for p in queryset),
-                    'data': []
-                }
-                
-                for procurement in queryset:
-                    report_data['data'].append({
-                        'order_number': procurement.order_number,
-                        'item_name': procurement.item.name,
-                        'quantity': procurement.quantity,
-                        'unit_price': float(procurement.unit_price),
-                        'total_amount': float(procurement.unit_price) * procurement.quantity,
-                        'supplier': procurement.supplier,
-                        'order_date': procurement.order_date,
-                        'created_at': procurement.created_at
-                    })
-            
-            elif report.report_type == 'stock_movement':
-                queryset = StockMovement.objects.all()
-                if filters.get('startDate'):
-                    start_date = self._parse_date_filter(filters['startDate'])
-                    if start_date:
-                        queryset = queryset.filter(movement_date__gte=start_date.date())
-                if filters.get('endDate'):
-                    end_date = self._parse_date_filter(filters['endDate'])
-                    if end_date:
-                        queryset = queryset.filter(movement_date__lte=end_date.date())
-                if filters.get('user'):
-                    queryset = queryset.filter(received_by__id=filters['user'])
-                if filters.get('item'):
-                    queryset = queryset.filter(item__id=filters['item'])
-                
-                print(f"Stock movement queryset count: {queryset.count()}")
-                
-                report_data = {
-                    'report_id': report.id,
-                    'report_type': 'stock_movement',
-                    'generated_at': report.generated_at,
-                    'filters': filters,
-                    'total_records': queryset.count(),
-                    'data': []
-                }
-                
-                for movement in queryset:
-                    report_data['data'].append({
-                        'item_name': movement.item.name,
-                        'quantity': movement.quantity,
-                        'from_location': movement.from_location.name,
-                        'to_location': movement.to_location.name,
-                        'movement_date': movement.movement_date,
-                        'received_by': movement.received_by.name,
-                        'notes': movement.notes
-                    })
-            
-            elif report.report_type == 'inventory':
-                queryset = Item.objects.all()
-                if filters.get('item'):
-                    queryset = queryset.filter(id=filters['item'])
-                
-                print(f"Inventory queryset count: {queryset.count()}")
-                
-                report_data = {
-                    'report_id': report.id,
-                    'report_type': 'inventory',
-                    'generated_at': report.generated_at,
-                    'filters': filters,
-                    'total_items': queryset.count(),
-                    'total_value': sum(float(item.unit_price) * item.quantity for item in queryset),
-                    'data': []
-                }
-                
-                for item in queryset:
-                    report_data['data'].append({
-                        'item_name': item.name,
-                        'category': item.category.name,
-                        'quantity': item.quantity,
-                        'unit_price': float(item.unit_price),
-                        'total_value': float(item.unit_price) * item.quantity
-                    })
-            
-            elif report.report_type == 'stock_requests':
-                queryset = SendingStockRequest.objects.all()
-                if filters.get('startDate'):
-                    start_date = self._parse_date_filter(filters['startDate'])
-                    if start_date:
-                        queryset = queryset.filter(created_at__gte=start_date)
-                if filters.get('endDate'):
-                    end_date = self._parse_date_filter(filters['endDate'])
-                    if end_date:
-                        end_date = timezone.make_aware(
-                            datetime.combine(end_date.date(), datetime.max.time()),
-                            timezone=timezone.get_current_timezone()
-                        )
-                        queryset = queryset.filter(created_at__lte=end_date)
-                if filters.get('status'):
-                    queryset = queryset.filter(status=filters['status'])
-                if filters.get('user'):
-                    queryset = queryset.filter(requested_by__id=filters['user'])
-                if filters.get('item'):
-                    queryset = queryset.filter(item__id=filters['item'])
-                
-                print(f"Stock requests queryset count: {queryset.count()}")
-                
-                report_data = {
-                    'report_id': report.id,
-                    'report_type': 'stock_requests',
-                    'generated_at': report.generated_at,
-                    'filters': filters,
-                    'total_records': queryset.count(),
-                    'pending_requests': queryset.filter(status='Pending').count(),
-                    'approved_requests': queryset.filter(status='Approved').count(),
-                    'rejected_requests': queryset.filter(status='Rejected').count(),
-                    'data': []
-                }
-                
-                for request_item in queryset:
-                    report_data['data'].append({
-                        'item_name': request_item.item.name,
-                        'quantity': request_item.quantity,
-                        'status': request_item.status,
-                        'requested_by': str(request_item.requested_by) if request_item.requested_by else 'Unknown',
-                        'created_at': request_item.created_at
-                    })
-            
-            elif report.report_type == 'discarded_items':
-                queryset = DiscardedItem.objects.all()
-                if filters.get('startDate'):
-                    start_date = self._parse_date_filter(filters['startDate'])
-                    if start_date:
-                        queryset = queryset.filter(date__gte=start_date.date())
-                if filters.get('endDate'):
-                    end_date = self._parse_date_filter(filters['endDate'])
-                    if end_date:
-                        queryset = queryset.filter(date__lte=end_date.date())
-                if filters.get('reason'):
-                    queryset = queryset.filter(reason=filters['reason'])
-                if filters.get('user'):
-                    queryset = queryset.filter(discarded_by__id=filters['user'])
-                if filters.get('item'):
-                    queryset = queryset.filter(item__id=filters['item'])
-                
-                print(f"Discarded items queryset count: {queryset.count()}")
-                
-                report_data = {
-                    'report_id': report.id,
-                    'report_type': 'discarded_items',
-                    'generated_at': report.generated_at,
-                    'filters': filters,
-                    'total_records': queryset.count(),
-                    'total_quantity_discarded': sum(item.quantity for item in queryset),
-                    'data': []
-                }
-                
-                for discarded_item in queryset:
-                    report_data['data'].append({
-                        'item_name': discarded_item.item.name,
-                        'location': discarded_item.location.name,
-                        'quantity': discarded_item.quantity,
-                        'reason': discarded_item.reason,
-                        'date': discarded_item.date,
-                        'discarded_by': discarded_item.discarded_by.name if discarded_item.discarded_by else 'Unknown',
-                        'notes': discarded_item.notes
-                    })
-            
-            print(f"Report data prepared: {len(report_data.get('data', [])) if report_data else 0} items")
-            
-            if not report_data:
-                return Response(
-                    {'error': 'Report data not found'}, 
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            
-            # Generate PDF
-            pdf_buffer = self._generate_pdf_content(report_data, report.report_type)
-            
-            # Create filename
-            filename = f"{report.report_type}_report_{report.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-            
-            # Create HTTP response with PDF
-            response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
-            
-            return response
-            
-        except Exception as e:
-            print(f"Error in export_pdf: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return Response(
-                {'error': f'Failed to export PDF: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=True, methods=['post'])
-    def export_excel(self, request, pk=None):
-        """Export report as Excel"""
-        try:
-            report = self.get_object()
-            
-            # Get the report data based on report type
-            report_data = None
-            filters = report.filters or {}
-            
-            if report.report_type == 'procurement':
-                queryset = Procurement.objects.all()
-                if filters.get('startDate'):
-                    start_date = self._parse_date_filter(filters['startDate'])
-                    if start_date:
-                        queryset = queryset.filter(created_at__gte=start_date)
-                if filters.get('endDate'):
-                    end_date = self._parse_date_filter(filters['endDate'])
-                    if end_date:
-                        end_date = timezone.make_aware(
-                            datetime.combine(end_date.date(), datetime.max.time()),
-                            timezone=timezone.get_current_timezone()
-                        )
-                        queryset = queryset.filter(created_at__lte=end_date)
-                if filters.get('item'):
-                    queryset = queryset.filter(item__id=filters['item'])
-                
-                report_data = {
-                    'report_id': report.id,
-                    'report_type': 'procurement',
-                    'generated_at': report.generated_at,
-                    'filters': filters,
-                    'total_records': queryset.count(),
-                    'total_amount': sum(float(p.unit_price) * p.quantity for p in queryset),
-                    'data': []
-                }
-                
-                for procurement in queryset:
-                    report_data['data'].append({
-                        'order_number': procurement.order_number,
-                        'item_name': procurement.item.name,
-                        'quantity': procurement.quantity,
-                        'unit_price': float(procurement.unit_price),
-                        'total_amount': float(procurement.unit_price) * procurement.quantity,
-                        'supplier': procurement.supplier,
-                        'order_date': procurement.order_date,
-                        'created_at': procurement.created_at
-                    })
-            
-            elif report.report_type == 'stock_movement':
-                queryset = StockMovement.objects.all()
-                if filters.get('startDate'):
-                    start_date = self._parse_date_filter(filters['startDate'])
-                    if start_date:
-                        queryset = queryset.filter(movement_date__gte=start_date.date())
-                if filters.get('endDate'):
-                    end_date = self._parse_date_filter(filters['endDate'])
-                    if end_date:
-                        queryset = queryset.filter(movement_date__lte=end_date.date())
-                if filters.get('user'):
-                    queryset = queryset.filter(received_by__id=filters['user'])
-                if filters.get('item'):
-                    queryset = queryset.filter(item__id=filters['item'])
-                
-                report_data = {
-                    'report_id': report.id,
-                    'report_type': 'stock_movement',
-                    'generated_at': report.generated_at,
-                    'filters': filters,
-                    'total_records': queryset.count(),
-                    'data': []
-                }
-                
-                for movement in queryset:
-                    report_data['data'].append({
-                        'item_name': movement.item.name,
-                        'quantity': movement.quantity,
-                        'from_location': movement.from_location.name,
-                        'to_location': movement.to_location.name,
-                        'movement_date': movement.movement_date,
-                        'received_by': movement.received_by.name,
-                        'notes': movement.notes
-                    })
-            
-            elif report.report_type == 'inventory':
-                queryset = Item.objects.all()
-                if filters.get('item'):
-                    queryset = queryset.filter(id=filters['item'])
-                
-                report_data = {
-                    'report_id': report.id,
-                    'report_type': 'inventory',
-                    'generated_at': report.generated_at,
-                    'filters': filters,
-                    'total_items': queryset.count(),
-                    'total_value': sum(float(item.unit_price) * item.quantity for item in queryset),
-                    'data': []
-                }
-                
-                for item in queryset:
-                    report_data['data'].append({
-                        'item_name': item.name,
-                        'category': item.category.name,
-                        'quantity': item.quantity,
-                        'unit_price': float(item.unit_price),
-                        'total_value': float(item.unit_price) * item.quantity
-                    })
-            
-            elif report.report_type == 'stock_requests':
-                queryset = SendingStockRequest.objects.all()
-                if filters.get('startDate'):
-                    start_date = self._parse_date_filter(filters['startDate'])
-                    if start_date:
-                        queryset = queryset.filter(created_at__gte=start_date)
-                if filters.get('endDate'):
-                    end_date = self._parse_date_filter(filters['endDate'])
-                    if end_date:
-                        end_date = timezone.make_aware(
-                            datetime.combine(end_date.date(), datetime.max.time()),
-                            timezone=timezone.get_current_timezone()
-                        )
-                        queryset = queryset.filter(created_at__lte=end_date)
-                if filters.get('status'):
-                    queryset = queryset.filter(status=filters['status'])
-                if filters.get('user'):
-                    queryset = queryset.filter(requested_by__id=filters['user'])
-                if filters.get('item'):
-                    queryset = queryset.filter(item__id=filters['item'])
-                
-                report_data = {
-                    'report_id': report.id,
-                    'report_type': 'stock_requests',
-                    'generated_at': report.generated_at,
-                    'filters': filters,
-                    'total_records': queryset.count(),
-                    'pending_requests': queryset.filter(status='Pending').count(),
-                    'approved_requests': queryset.filter(status='Approved').count(),
-                    'rejected_requests': queryset.filter(status='Rejected').count(),
-                    'data': []
-                }
-                
-                for request_item in queryset:
-                    report_data['data'].append({
-                        'item_name': request_item.item.name,
-                        'quantity': request_item.quantity,
-                        'status': request_item.status,
-                        'requested_by': str(request_item.requested_by) if request_item.requested_by else 'Unknown',
-                        'created_at': request_item.created_at
-                    })
-            
-            elif report.report_type == 'discarded_items':
-                queryset = DiscardedItem.objects.all()
-                if filters.get('startDate'):
-                    start_date = self._parse_date_filter(filters['startDate'])
-                    if start_date:
-                        queryset = queryset.filter(date__gte=start_date.date())
-                if filters.get('endDate'):
-                    end_date = self._parse_date_filter(filters['endDate'])
-                    if end_date:
-                        queryset = queryset.filter(date__lte=end_date.date())
-                if filters.get('reason'):
-                    queryset = queryset.filter(reason=filters['reason'])
-                if filters.get('user'):
-                    queryset = queryset.filter(discarded_by__id=filters['user'])
-                if filters.get('item'):
-                    queryset = queryset.filter(item__id=filters['item'])
-                
-                report_data = {
-                    'report_id': report.id,
-                    'report_type': 'discarded_items',
-                    'generated_at': report.generated_at,
-                    'filters': filters,
-                    'total_records': queryset.count(),
-                    'total_quantity_discarded': sum(item.quantity for item in queryset),
-                    'data': []
-                }
-                
-                for discarded_item in queryset:
-                    report_data['data'].append({
-                        'item_name': discarded_item.item.name,
-                        'location': discarded_item.location.name,
-                        'quantity': discarded_item.quantity,
-                        'reason': discarded_item.reason,
-                        'date': discarded_item.date,
-                        'discarded_by': discarded_item.discarded_by.name if discarded_item.discarded_by else 'Unknown',
-                        'notes': discarded_item.notes
-                    })
-            
-            if not report_data:
-                return Response(
-                    {'error': 'Report data not found'}, 
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            
-            # Generate Excel
-            excel_buffer = self._generate_excel_content(report_data, report.report_type)
-            
-            # Create filename
-            filename = f"{report.report_type}_report_{report.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-            
-            # Create HTTP response with Excel
-            response = HttpResponse(excel_buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
-            
-            return response
-            
-        except Exception as e:
-            return Response(
-                {'error': f'Failed to export Excel: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            ) 
+        return buffer 

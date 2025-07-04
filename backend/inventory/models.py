@@ -241,3 +241,13 @@ class InventoryByLocation(models.Model):
             raise ValueError(f"Not enough quantity available. Available: {self.quantity}, Requested: {quantity}")
         self.quantity -= quantity
         self.save(update_fields=['quantity', 'last_updated'])
+
+class AuditLog(models.Model):
+    action = models.CharField(max_length=100)
+    entity_type = models.CharField(max_length=100)
+    performed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
+    timestamp = models.DateTimeField(auto_now_add=True)
+    details = models.TextField()
+
+    def __str__(self):
+        return f"{self.action} on {self.entity_type} by {self.performed_by} at {self.timestamp}"

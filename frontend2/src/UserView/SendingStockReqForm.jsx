@@ -12,12 +12,9 @@ const defaultLocations = [
 const initialForm = {
   item_id: "",
   quantity: 0,
-  from_location_id: "",
-  to_location_id: "",
-  requested_by: "",
 };
 
-function SendingStockReqForm({ onClose, onSubmit, users = [], items = [], locations = [] }) {
+function SendingStockReqForm({ onClose, onSubmit, items = [] }) {
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -62,7 +59,7 @@ function SendingStockReqForm({ onClose, onSubmit, users = [], items = [], locati
           <div className="flex justify-between items-start mb-4">
             <div>
               <h2 className="text-xl font-semibold">Create Stock Request</h2>
-              <p className="text-gray-600 text-sm">Submit a request to move stock between locations</p>
+              <p className="text-gray-600 text-sm">Submit a request for stock items</p>
             </div>
             <button onClick={onClose} className="text-gray-500 hover:text-gray-700"><FaTimes /></button>
           </div>
@@ -103,55 +100,7 @@ function SendingStockReqForm({ onClose, onSubmit, users = [], items = [], locati
                     required
                   />
                 </div>
-                {/* From/To Location Dropdowns */}
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">From Location</label>
-                    <select
-                      name="from_location_id"
-                      value={form.from_location_id}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="">Select location</option>
-                      {locations.map((loc) => (
-                        <option key={loc.id} value={loc.id}>{loc.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">To Location</label>
-                    <select
-                      name="to_location_id"
-                      value={form.to_location_id}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="">Select location</option>
-                      {locations.map((loc) => (
-                        <option key={loc.id} value={loc.id}>{loc.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                {/* Requested By Dropdown */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Requested By</label>
-                  <select
-                    name="requested_by"
-                    value={form.requested_by}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="">Select user</option>
-                    {users.map((user) => (
-                      <option key={user.id} value={user.id}>{user.name}</option>
-                    ))}
-                  </select>
-                </div>
+
               </div>
               <div className="flex justify-end space-x-3 mt-6">
                 <button

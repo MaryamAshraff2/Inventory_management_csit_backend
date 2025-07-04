@@ -13,6 +13,8 @@ from .views.stockmovements import StockMovementViewSet
 from .views.sendingstockrequests import SendingStockRequestViewSet
 from .views.discardeditems import DiscardedItemViewSet
 from .views.reports import ReportViewSet
+from .views.auditlogs import AuditLogListView, AuditLogActionsView, AuditLogEntitiesView, AuditLogUsersView, AuditLogExportCSVView, AuditLogExportPDFView
+from .views.user_views import user_dashboard_data, create_stock_request, user_stock_requests, user_inventory_view, user_location_inventory, available_items_for_request, user_profile_data
 
 
 # Router for ViewSets
@@ -32,6 +34,21 @@ urlpatterns = [
     path('login/', login_api, name='login'),
     path('', include(router.urls)),
     path('api/item-availability/', get_item_availability, name='item-availability'),
+    path('audit-logs/', AuditLogListView.as_view(), name='audit-log-list'),
+    path('audit-logs/actions/', AuditLogActionsView.as_view(), name='audit-log-actions'),
+    path('audit-logs/entities/', AuditLogEntitiesView.as_view(), name='audit-log-entities'),
+    path('audit-logs/users/', AuditLogUsersView.as_view(), name='audit-log-users'),
+    path('audit-logs/export/csv/', AuditLogExportCSVView.as_view(), name='audit-log-export-csv'),
+    path('audit-logs/export/pdf/', AuditLogExportPDFView.as_view(), name='audit-log-export-pdf'),
+    
+    # User-specific endpoints
+    path('user/dashboard/', user_dashboard_data, name='user-dashboard'),
+    path('user/stock-requests/', user_stock_requests, name='user-stock-requests'),
+    path('user/create-stock-request/', create_stock_request, name='create-stock-request'),
+    path('user/inventory/', user_inventory_view, name='user-inventory'),
+    path('user/location-inventory/', user_location_inventory, name='user-location-inventory'),
+    path('user/available-items/', available_items_for_request, name='available-items'),
+    path('user/profile/', user_profile_data, name='user-profile'),
 ]
 
 
