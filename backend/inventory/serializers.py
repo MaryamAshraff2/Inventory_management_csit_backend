@@ -6,6 +6,7 @@ from .models import (
     StockMovement, SendingStockRequest, DiscardedItem, Report, TotalInventory, InventoryByLocation, AuditLog
 )
 import logging
+from django.utils import timezone
 
 logger = logging.getLogger('inventory')
 
@@ -47,17 +48,39 @@ class ItemSerializer(serializers.ModelSerializer):
     )
     main_store_quantity = serializers.SerializerMethodField(read_only=True)
     total_quantity = serializers.SerializerMethodField(read_only=True)
-    dead_stock_quantity = serializers.IntegerField(read_only=True)
+    is_dead_stock = serializers.SerializerMethodField()
+    last_stock_movement = serializers.SerializerMethodField()
+    dead_stock_threshold_days = serializers.SerializerMethodField()
 
     class Meta:
         model = Item
-        fields = ['id', 'name', 'unit_price', 'category', 'category_id', 'main_store_quantity', 'total_quantity', 'dead_stock_quantity']
+        fields = ['id', 'name', 'unit_price', 'category', 'category_id', 'main_store_quantity', 'total_quantity', 'is_dead_stock', 'last_stock_movement', 'dead_stock_threshold_days']
 
     def get_main_store_quantity(self, obj):
         return obj.main_store_quantity
 
     def get_total_quantity(self, obj):
         return obj.total_quantity
+
+    def get_is_dead_stock(self, obj):
+        return obj.is_dead_stock
+
+    def get_last_stock_movement(self, obj):
+        if hasattr(obj, 'last_stock_movement') and obj.last_stock_movement:
+            m = obj.last_stock_movement
+            return {
+                'id': m.id,
+                'from_location': m.from_location.name,
+                'to_location': m.to_location.name,
+                'quantity': m.quantity,
+                'movement_date': m.movement_date,
+                'received_by': m.received_by.name,
+                'notes': m.notes,
+            }
+        return None
+
+    def get_dead_stock_threshold_days(self, obj):
+        return obj.dead_stock_threshold_days
 
 class ProcurementItemSerializer(serializers.ModelSerializer):
     item_name = serializers.CharField(source='item.name', read_only=True)
@@ -240,12 +263,16 @@ class StockMovementSerializer(serializers.ModelSerializer):
                         'order_number': batch.order_number,
                         'supplier': batch.supplier,
                         'order_date': batch.order_date,
-                        'unit_price': batch.unit_price,
                     }
                 )
                 to_batch.available_quantity += moved_qty
                 to_batch.last_stock_movement = stock_movement
                 to_batch.save(update_fields=['available_quantity', 'last_stock_movement'])
+
+            # --- DEAD STOCK LOGIC: update last_stock_movement on item ---
+            item.last_stock_movement = timezone.now().date()
+            item.save(update_fields=["last_stock_movement"])
+
             return stock_movement
 
 class SendingStockRequestSerializer(serializers.ModelSerializer):

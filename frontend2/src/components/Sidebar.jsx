@@ -114,6 +114,17 @@ const Sidebar = () => {
               </li>
               <li>
                 <Link 
+                  to="/dead-stock" 
+                  className={`flex items-center p-2 rounded hover:bg-gray-700 ${
+                    isActive('/dead-stock') ? 'bg-gray-700' : ''
+                  }`}
+                >
+                  <FaBoxes className="mr-3" />
+                  Dead Stock
+                </Link>
+              </li>
+              <li>
+                <Link 
                   to="/stock-movements" 
                   className={`flex items-center p-2 rounded hover:bg-gray-700 ${
                     isActive('/stock-movements') ? 'bg-gray-700' : ''

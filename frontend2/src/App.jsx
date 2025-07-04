@@ -23,6 +23,7 @@ import StockRequestsManagement from "./pages/StockRequest";
 import Reports from "./pages/Reports";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuditLogs from "./pages/AuditLogs";
+import DeadStock from './pages/DeadStock';
 
 function App() {
   // Determine which dashboard to show based on userType
@@ -208,6 +209,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/dead-stock" element={<DeadStock />} />
 
           {/* Catch-all route */}
           <Route

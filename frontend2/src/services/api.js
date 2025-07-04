@@ -129,7 +129,12 @@ export const discardedItemsAPI = {
 
 // Items API (for dropdown)
 export const itemsAPI = {
-  getAll: () => apiRequest('/items/'),
+  getAll: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    const res = await fetch(`${API_BASE_URL}/items/${query ? `?${query}` : ''}`);
+    if (!res.ok) throw new Error('Failed to fetch items');
+    return res.json();
+  },
   getById: (id) => apiRequest(`/items/${id}/`),
   getTotalInventory: () => apiRequest('/items/total_inventory/'),
   getLocationsWithStock: (itemId) => apiRequest(`/items/locations_with_stock/?item_id=${itemId}`),

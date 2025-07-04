@@ -346,7 +346,7 @@ const ProcurementPage = () => {
               onClose={() => setShowForm(false)} 
               onSubmit={handleFormSubmit} 
               availableItems={items}
-              categories={categories.filter(cat => cat.name.toLowerCase() !== 'dead stock')}
+              categories={categories}
             />
           </div>
         </div>

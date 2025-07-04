@@ -12,6 +12,16 @@ class ItemViewSet(viewsets.ModelViewSet):
     queryset = Item.objects.all()
     serializer_class = ItemSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        dead_stock = self.request.query_params.get('dead_stock')
+        if dead_stock is not None:
+            if dead_stock.lower() == 'true':
+                queryset = [item for item in queryset if item.is_dead_stock]
+            elif dead_stock.lower() == 'false':
+                queryset = [item for item in queryset if not item.is_dead_stock]
+        return queryset
+
     @action(detail=False, methods=['get'])
     def total_inventory(self, request):
         """

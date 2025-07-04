@@ -285,9 +285,6 @@ const Inventory = () => {
                           Item Name
                         </th>
                         <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Category
-                        </th>
-                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Quantity
                         </th>
                         <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -307,9 +304,6 @@ const Inventory = () => {
                             </td>
                             <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {item.item_name}
-                            </td>
-                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {item.category?.name || '--'}
                             </td>
                             <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {item.available_qty}
@@ -348,7 +342,7 @@ const Inventory = () => {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="6" className="px-4 sm:px-6 py-4 text-center text-sm text-gray-500">
+                          <td colSpan="5" className="px-4 sm:px-6 py-4 text-center text-sm text-gray-500">
                             No inventory items found
                           </td>
                         </tr>
