@@ -67,16 +67,7 @@ class ItemSerializer(serializers.ModelSerializer):
 
     def get_last_stock_movement(self, obj):
         if hasattr(obj, 'last_stock_movement') and obj.last_stock_movement:
-            m = obj.last_stock_movement
-            return {
-                'id': m.id,
-                'from_location': m.from_location.name,
-                'to_location': m.to_location.name,
-                'quantity': m.quantity,
-                'movement_date': m.movement_date,
-                'received_by': m.received_by.name,
-                'notes': m.notes,
-            }
+            return obj.last_stock_movement.isoformat()
         return None
 
     def get_dead_stock_threshold_days(self, obj):
@@ -351,13 +342,12 @@ class DiscardedItemSerializer(serializers.ModelSerializer):
             # STEP 4: Create the discarded item record
             discarded_item = super().create(validated_data)
 
-            # STEP 5: Increment dead stock for item and category, but do NOT change item.category
-            item.dead_stock_quantity = getattr(item, 'dead_stock_quantity', 0) + quantity
-            item.save(update_fields=["dead_stock_quantity"])
+            # STEP 5: Increment dead stock for category only if the field exists
             from .models import Category
             dead_stock_category = Category.get_dead_stock_category()
-            dead_stock_category.dead_stock_count += quantity
-            dead_stock_category.save(update_fields=["dead_stock_count"])
+            if hasattr(dead_stock_category, 'dead_stock_count'):
+                dead_stock_category.dead_stock_count += quantity
+                dead_stock_category.save(update_fields=["dead_stock_count"])
 
             return discarded_item
 

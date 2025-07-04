@@ -25,6 +25,11 @@ class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
     item_count = models.PositiveIntegerField(default=0)
 
+    @classmethod
+    def get_dead_stock_category(cls):
+        # Returns a category named 'Dead Stock', creates it if not exists
+        return cls.objects.get_or_create(name='Dead Stock')[0]
+
     def __str__(self):
         return self.name
 
