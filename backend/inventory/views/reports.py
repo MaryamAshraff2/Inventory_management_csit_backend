@@ -18,8 +18,10 @@ from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-from ..models import Report, Procurement, StockMovement, Item, SendingStockRequest, DiscardedItem, User, InventoryByLocation, Location
+from ..models import Report, Procurement, StockMovement, Item, SendingStockRequest, DiscardedItem, User, InventoryByLocation, Location, ProcurementItem
 from ..serializers import ReportSerializer
+# Add Category import
+from ..models import Category
 
 
 class ReportViewSet(viewsets.ModelViewSet):
@@ -383,11 +385,12 @@ class ReportViewSet(viewsets.ModelViewSet):
         elements.append(Spacer(1, 10))
         
         # Add report metadata
-        metadata = [
-            ["Generated on:", str(report_data.get('generated_at', 'N/A'))],
-            ["Total Records:", str(report_data.get('total_records', 0))],
-        ]
-        
+        metadata = []
+        register_type = report_data.get('register_type')
+        if register_type:
+            metadata.append(["Register Type:", f"{register_type} Register"])
+        metadata.append(["Generated on:", str(report_data.get('generated_at', 'N/A'))])
+        metadata.append(["Total Records:", str(report_data.get('total_records', 0))])
         metadata_table = Table(metadata, colWidths=[1.5*inch, 3*inch])
         metadata_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
@@ -481,7 +484,7 @@ class ReportViewSet(viewsets.ModelViewSet):
                 # Define table style with proper spacing and formatting
                 table_style = [
                     # Header styling (first two rows)
-                    ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#2E5984')),
+                    ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#E0E0E0')),
                     ('TEXTCOLOR', (0, 0), (-1, 1), colors.whitesmoke),
                     ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
                     ('FONTSIZE', (0, 0), (-1, 1), 9),
@@ -505,8 +508,8 @@ class ReportViewSet(viewsets.ModelViewSet):
                     ('RIGHTPADDING', (0, 2), (-1, -1), 2),
                     
                     # Grid and borders
-                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D3D3D3')),
-                    ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#2E5984')),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                    ('BOX', (0, 0), (-1, -1), 1, colors.black),
                     
                     # Word wrapping for all cells
                     ('WORDWRAP', (0, 0), (-1, -1), 'CJK'),
@@ -647,4 +650,1625 @@ class ReportViewSet(viewsets.ModelViewSet):
         buffer = BytesIO()
         wb.save(buffer)
         buffer.seek(0)
-        return buffer 
+        return buffer
+
+    @action(detail=False, methods=['post'])
+    def generate_procurement_report(self, request):
+        """Generate procurement report with filters"""
+        try:
+            filters = request.data.get('filters', {})
+            
+            # Build query based on filters
+            queryset = Procurement.objects.all()
+            
+            start_date = self._parse_date_filter(filters.get('startDate'))
+            end_date = self._parse_date_filter(filters.get('endDate'))
+            
+            if start_date:
+                queryset = queryset.filter(created_at__gte=start_date)
+            if end_date:
+                # For end date, we want to include the entire day
+                end_date = timezone.make_aware(
+                    datetime.combine(end_date.date(), datetime.max.time()),
+                    timezone=timezone.get_current_timezone()
+                )
+                queryset = queryset.filter(created_at__lte=end_date)
+            if filters.get('item'):
+                queryset = queryset.filter(items__item__id=filters['item'])
+            if filters.get('procurement_type'):
+                queryset = queryset.filter(procurement_type=filters['procurement_type'])
+            if filters.get('supplier'):
+                queryset = queryset.filter(supplier=filters['supplier'])
+            
+            # Create report record
+            report = Report.objects.create(
+                report_type='procurement',
+                filters=filters,
+                generated_by=self._get_generated_by_user(request)
+            )
+            
+            # Prepare report data
+            report_data = {
+                'report_id': report.id,
+                'report_type': 'procurement',
+                'generated_at': report.generated_at,
+                'filters': filters,
+                'total_records': queryset.count(),
+                'total_amount': sum(
+                    sum(float(item.unit_price) * item.quantity for item in p.items.all())
+                    for p in queryset
+                ),
+                'data': []
+            }
+            
+            for procurement in queryset:
+                total_amount = sum(float(item.unit_price) * item.quantity for item in procurement.items.all())
+                items_summary = ", ".join(
+                    f"{item.item.name} ({item.quantity})" for item in procurement.items.all()
+                )
+                report_data['data'].append({
+                    'order_number': procurement.order_number,
+                    'items_summary': items_summary,
+                    'supplier': procurement.supplier,
+                    'order_date': procurement.order_date,
+                    'total_amount': total_amount,
+                })
+            
+            return Response(report_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to generate procurement report: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'])
+    def generate_stock_movement_report(self, request):
+        """Generate stock movement report with filters"""
+        try:
+            filters = request.data.get('filters', {})
+            
+            queryset = StockMovement.objects.all()
+            
+            start_date = self._parse_date_filter(filters.get('startDate'))
+            end_date = self._parse_date_filter(filters.get('endDate'))
+            
+            if start_date:
+                queryset = queryset.filter(movement_date__gte=start_date.date())
+            if end_date:
+                queryset = queryset.filter(movement_date__lte=end_date.date())
+            if filters.get('user'):
+                queryset = queryset.filter(received_by__id=filters['user'])
+            if filters.get('item'):
+                queryset = queryset.filter(item__id=filters['item'])
+            if filters.get('from_location'):
+                queryset = queryset.filter(from_location__id=filters['from_location'])
+            if filters.get('to_location'):
+                queryset = queryset.filter(to_location__id=filters['to_location'])
+            
+            report = Report.objects.create(
+                report_type='stock_movement',
+                filters=filters,
+                generated_by=self._get_generated_by_user(request)
+            )
+            
+            report_data = {
+                'report_id': report.id,
+                'report_type': 'stock_movement',
+                'generated_at': report.generated_at,
+                'filters': filters,
+                'total_records': queryset.count(),
+                'data': []
+            }
+            
+            for movement in queryset:
+                report_data['data'].append({
+                    'item_name': movement.item.name,
+                    'quantity': movement.quantity,
+                    'from_location': movement.from_location.name,
+                    'to_location': movement.to_location.name,
+                    'movement_date': movement.movement_date,
+                    'received_by': movement.received_by.name,
+                    'notes': movement.notes
+                })
+            
+            return Response(report_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to generate stock movement report: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'])
+    def generate_inventory_report(self, request):
+        """Generate inventory report with filters, supporting item, location, and date filters."""
+        try:
+            filters = request.data.get('filters', {})
+
+            start_date = self._parse_date_filter(filters.get('startDate'))
+            end_date = self._parse_date_filter(filters.get('endDate'))
+
+            # If location filter is provided, use InventoryByLocation
+            if filters.get('location'):
+                inv_qs = InventoryByLocation.objects.all()
+                if filters.get('item'):
+                    inv_qs = inv_qs.filter(item__id=filters['item'])
+                inv_qs = inv_qs.filter(location__id=filters['location'])
+                if start_date:
+                    inv_qs = inv_qs.filter(last_updated__gte=start_date)
+                if end_date:
+                    inv_qs = inv_qs.filter(last_updated__lte=end_date)
+                report_data = {
+                    'report_type': 'inventory',
+                    'generated_at': timezone.now(),
+                    'filters': filters,
+                    'total_items': inv_qs.count(),
+                    'total_value': sum(float(inv.item.unit_price) * inv.quantity for inv in inv_qs),
+                    'data': []
+                }
+                for inv in inv_qs:
+                    report_data['data'].append({
+                        'item_name': inv.item.name,
+                        'category': inv.item.category.name,
+                        'location': inv.location.name,
+                        'quantity': inv.quantity,
+                        'unit_price': float(inv.item.unit_price),
+                        'total_value': float(inv.item.unit_price) * inv.quantity
+                    })
+                return Response(report_data, status=status.HTTP_200_OK)
+
+            # If only item filter is provided, show all locations for that item
+            elif filters.get('item'):
+                inv_qs = InventoryByLocation.objects.filter(item__id=filters['item'])
+                if start_date:
+                    inv_qs = inv_qs.filter(last_updated__gte=start_date)
+                if end_date:
+                    inv_qs = inv_qs.filter(last_updated__lte=end_date)
+                report_data = {
+                    'report_type': 'inventory',
+                    'generated_at': timezone.now(),
+                    'filters': filters,
+                    'total_items': inv_qs.count(),
+                    'total_value': sum(float(inv.item.unit_price) * inv.quantity for inv in inv_qs),
+                    'data': []
+                }
+                for inv in inv_qs:
+                    report_data['data'].append({
+                        'item_name': inv.item.name,
+                        'category': inv.item.category.name,
+                        'location': inv.location.name,
+                        'quantity': inv.quantity,
+                        'unit_price': float(inv.item.unit_price),
+                        'total_value': float(inv.item.unit_price) * inv.quantity
+                    })
+                return Response(report_data, status=status.HTTP_200_OK)
+
+            # Default: show all items (old logic)
+            queryset = Item.objects.all()
+            report = Report.objects.create(
+                report_type='inventory',
+                filters=filters,
+                generated_by=self._get_generated_by_user(request)
+            )
+            report_data = {
+                'report_id': report.id,
+                'report_type': 'inventory',
+                'generated_at': report.generated_at,
+                'filters': filters,
+                'total_items': queryset.count(),
+                'total_value': sum(float(item.unit_price) * sum(inv.quantity for inv in item.inventory_by_location.all()) for item in queryset),
+                'data': []
+            }
+            for item in queryset:
+                total_quantity = sum(inv.quantity for inv in item.inventory_by_location.all())
+                locations = ', '.join(inv.location.name for inv in item.inventory_by_location.all())
+                report_data['data'].append({
+                    'item_name': item.name,
+                    'category': item.category.name,
+                    'location': locations,
+                    'quantity': total_quantity,
+                    'unit_price': float(item.unit_price),
+                    'total_value': float(item.unit_price) * total_quantity
+                })
+            return Response(report_data, status=status.HTTP_200_OK)
+        except Exception as e:
+            import traceback
+            print("INVENTORY REPORT ERROR:", e)
+            traceback.print_exc()
+            return Response(
+                {'error': f'Failed to generate inventory report: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'])
+    def generate_stock_requests_report(self, request):
+        """Generate stock requests report with filters"""
+        try:
+            filters = request.data.get('filters', {})
+            
+            queryset = SendingStockRequest.objects.all()
+            
+            start_date = self._parse_date_filter(filters.get('startDate'))
+            end_date = self._parse_date_filter(filters.get('endDate'))
+            
+            if start_date:
+                queryset = queryset.filter(created_at__gte=start_date)
+            if end_date:
+                # For end date, we want to include the entire day
+                end_date = timezone.make_aware(
+                    datetime.combine(end_date.date(), datetime.max.time()),
+                    timezone=timezone.get_current_timezone()
+                )
+                queryset = queryset.filter(created_at__lte=end_date)
+            if filters.get('status'):
+                queryset = queryset.filter(status=filters['status'])
+            if filters.get('user'):
+                queryset = queryset.filter(requested_by__id=filters['user'])
+            if filters.get('item'):
+                queryset = queryset.filter(item__id=filters['item'])
+            
+            report = Report.objects.create(
+                report_type='stock_requests',
+                filters=filters,
+                generated_by=self._get_generated_by_user(request)
+            )
+            
+            report_data = {
+                'report_id': report.id,
+                'report_type': 'stock_requests',
+                'generated_at': report.generated_at,
+                'filters': filters,
+                'total_records': queryset.count(),
+                'pending_requests': queryset.filter(status='Pending').count(),
+                'approved_requests': queryset.filter(status='Approved').count(),
+                'rejected_requests': queryset.filter(status='Rejected').count(),
+                'data': []
+            }
+            
+            for request_item in queryset:
+                report_data['data'].append({
+                    'item_name': request_item.item.name,
+                    'quantity': request_item.quantity,
+                    'status': request_item.status,
+                    'requested_by': str(request_item.requested_by) if request_item.requested_by else 'Unknown',
+                    'created_at': request_item.created_at
+                })
+            
+            return Response(report_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to generate stock requests report: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'])
+    def generate_discarded_items_report(self, request):
+        """Generate discarded items report with filters"""
+        try:
+            filters = request.data.get('filters', {})
+            
+            queryset = DiscardedItem.objects.all()
+            
+            start_date = self._parse_date_filter(filters.get('startDate'))
+            end_date = self._parse_date_filter(filters.get('endDate'))
+            
+            if start_date:
+                queryset = queryset.filter(date__gte=start_date.date())
+            if end_date:
+                queryset = queryset.filter(date__lte=end_date.date())
+            if filters.get('reason'):
+                queryset = queryset.filter(reason=filters['reason'])
+            if filters.get('user'):
+                queryset = queryset.filter(discarded_by__id=filters['user'])
+            if filters.get('item'):
+                queryset = queryset.filter(item__id=filters['item'])
+            if filters.get('location'):
+                queryset = queryset.filter(location__id=filters['location'])
+            
+            report = Report.objects.create(
+                report_type='discarded_items',
+                filters=filters,
+                generated_by=self._get_generated_by_user(request)
+            )
+            
+            report_data = {
+                'report_id': report.id,
+                'report_type': 'discarded_items',
+                'generated_at': report.generated_at,
+                'filters': filters,
+                'total_records': queryset.count(),
+                'total_quantity_discarded': sum(item.quantity for item in queryset),
+                'data': []
+            }
+            
+            for discarded_item in queryset:
+                report_data['data'].append({
+                    'id': discarded_item.id,
+                    'item_name': discarded_item.item.name,
+                    'location': discarded_item.location.name,
+                    'quantity': discarded_item.quantity,
+                    'date': discarded_item.date,
+                    'reason': discarded_item.reason,
+                    'discarded_by': discarded_item.discarded_by.name if discarded_item.discarded_by else 'Unknown',
+                })
+            
+            return Response(report_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to generate discarded items report: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['post'])
+    def export_pdf(self, request, pk=None):
+        """Export report as PDF"""
+        try:
+            # Get the report object
+            try:
+                report = self.get_object()
+            except Exception as e:
+                print(f"Error getting report object: {str(e)}")
+                # Try to get the report directly using pk
+                if pk:
+                    try:
+                        report = Report.objects.get(id=pk)
+                    except Report.DoesNotExist:
+                        return Response(
+                            {'error': f'Report with ID {pk} not found'}, 
+                            status=status.HTTP_404_NOT_FOUND
+                        )
+                else:
+                    return Response(
+                        {'error': 'Report ID not provided'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            # Get the report data based on report type
+            report_data = None
+            filters = report.filters or {}
+            print(f"Exporting PDF for report {report.id} of type {report.report_type}")
+            print(f"Filters: {filters}")
+
+            if report.report_type == 'register':
+                # Import time at the top level
+                from datetime import time
+                
+                # Get main store location
+                from ..models import Location, ProcurementItem
+                try:
+                    main_store = Location.get_main_store()
+                    if not main_store:
+                        return Response(
+                            {'error': 'Main store location not found'}, 
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                        )
+                except Exception as e:
+                    return Response(
+                        {'error': f'Failed to get main store location: {str(e)}'}, 
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+                
+                # Collect all data entries (both stock movements and procurements)
+                all_entries = []
+                
+                # Parse date filters once at the beginning
+                start_date = self._parse_date_filter(filters.get('startDate'))
+                end_date = self._parse_date_filter(filters.get('endDate'))
+                
+                # 1. Get StockMovement records for items in the selected category
+                try:
+                    stock_movements = StockMovement.objects.filter(
+                        item__category__id=filters.get('category')
+                    ).order_by('movement_date', 'id')
+                    
+                    # Apply date filters to stock movements
+                    if start_date:
+                        stock_movements = stock_movements.filter(movement_date__gte=start_date.date())
+                    if end_date:
+                        stock_movements = stock_movements.filter(movement_date__lte=end_date.date())
+                    
+                    # Filter for movements involving main store (either from or to)
+                    stock_movements = stock_movements.filter(
+                        Q(from_location=main_store) | Q(to_location=main_store)
+                    )
+                    
+                    # Convert stock movements to register entries
+                    for movement in stock_movements:
+                        # Determine if this is a receipt or issue
+                        if movement.to_location == main_store:
+                            # Receipt into main store
+                            received_issued = 'Received'
+                            received = movement.quantity
+                            issued = ''
+                            balance_change = movement.quantity  # Positive for received
+                            # Create descriptive remarks for received items
+                            remarks = movement.notes or f"Stock movement from {movement.from_location.name} to {movement.to_location.name}"
+                        elif movement.from_location == main_store:
+                            # Issue from main store
+                            received_issued = 'Issued'
+                            received = ''
+                            issued = movement.quantity
+                            balance_change = -movement.quantity  # Negative for issued
+                            # Create descriptive remarks for issued items
+                            remarks = movement.notes or f"Stock movement from {movement.from_location.name} to {movement.to_location.name}"
+                        else:
+                            continue
+                        
+                        # Get voucher number from movement notes or create one
+                        voucher_no = movement.notes or f"MOV-{movement.id:06d}"
+                        
+                        # Create datetime for proper ordering - use morning time for received, afternoon for issued
+                        if received_issued == 'Received':
+                            # Received entries get morning time (9 AM)
+                            movement_time = time(hour=9, minute=0, second=0)
+                        else:
+                            # Issued entries get afternoon time (2 PM) to ensure they come after received entries
+                            movement_time = time(hour=14, minute=0, second=0)
+                        
+                        movement_datetime = timezone.make_aware(
+                            datetime.combine(movement.movement_date, movement_time),
+                            timezone=timezone.get_current_timezone()
+                        )
+                        
+                        all_entries.append({
+                            'datetime': movement_datetime,  # For sorting
+                            'date': movement.movement_date.strftime('%Y-%m-%d'),
+                            'receivedIssued': received_issued,
+                            'voucherNo': voucher_no,
+                            'particulars': movement.item.name,
+                            'unit': getattr(movement.item, 'unit', 'PCS'),
+                            'unitPrice': float(movement.item.unit_price),
+                            'totalCost': float(movement.item.unit_price) * movement.quantity,
+                            'quantity': {
+                                'received': received if received else '',
+                                'issued': issued if issued else '',
+                                'balance': 0,  # Will be calculated later
+                            },
+                            'remarks': remarks,
+                            'item_id': movement.item_id,
+                            'balance_change': balance_change,  # For balance calculation
+                        })
+                except Exception as e:
+                    print(f"Error processing stock movements in PDF export: {str(e)}")
+                    # Continue with empty stock movements if there's an error
+                    pass
+                
+                # 2. Get Procurement records for items in the selected category
+                try:
+                    procurements = Procurement.objects.filter(
+                        items__item__category__id=filters.get('category')
+                    ).order_by('order_date', 'id')
+                    
+                    # Apply date filters to procurements (use order_date for consistency)
+                    if start_date:
+                        procurements = procurements.filter(order_date__gte=start_date.date())
+                    if end_date:
+                        procurements = procurements.filter(order_date__lte=end_date.date())
+                    
+                    # Convert procurements to register entries
+                    for procurement in procurements:
+                        for proc_item in procurement.items.all():
+                            if proc_item.item.category.id == int(filters.get('category')):
+                                # This is a receipt into main store from procurement
+                                voucher_no = f"PO-{procurement.order_number}"
+                                
+                                # Use morning time (8 AM) for procurement entries to ensure they come first
+                                procurement_time = timezone.make_aware(
+                                    datetime.combine(procurement.order_date, time(hour=8, minute=0, second=0)),
+                                    timezone=timezone.get_current_timezone()
+                                )
+                                
+                                all_entries.append({
+                                    'datetime': procurement_time,  # For chronological ordering
+                                    'date': procurement.order_date.strftime('%Y-%m-%d'),
+                                    'receivedIssued': 'Received',
+                                    'voucherNo': voucher_no,
+                                    'particulars': proc_item.item.name,
+                                    'unit': getattr(proc_item.item, 'unit', 'PCS'),
+                                    'unitPrice': float(proc_item.unit_price),
+                                    'totalCost': float(proc_item.unit_price) * proc_item.quantity,
+                                    'quantity': {
+                                        'received': proc_item.quantity,
+                                        'issued': '',
+                                        'balance': 0,  # Will be calculated later
+                                    },
+                                    'remarks': f"Procurement from {procurement.supplier}",
+                                    'item_id': proc_item.item_id,
+                                    'balance_change': proc_item.quantity,  # Positive for received
+                                })
+                except Exception as e:
+                    print(f"Error processing procurements in PDF export: {str(e)}")
+                    # Continue with empty procurements if there's an error
+                    pass
+                
+                # Check if we have any data
+                if not all_entries:
+                    return Response(
+                        {'error': 'No data found for the selected category and date range'}, 
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                
+                # Sort all entries by exact datetime for proper chronological order
+                all_entries.sort(key=lambda x: (x['datetime'], x['receivedIssued'] == 'Issued'))
+                
+                # Calculate running balance per item
+                balance_map = {}  # {item_id: balance}
+                data = []
+                
+                for entry in all_entries:
+                    try:
+                        item_id = entry['item_id']
+                        prev_balance = balance_map.get(item_id, 0)
+                        
+                        # Calculate the new balance
+                        new_balance = prev_balance + entry['balance_change']
+                        balance_map[item_id] = new_balance
+                        
+                        # Update the balance in the entry
+                        entry['quantity']['balance'] = new_balance
+                        
+                        # Remove helper fields
+                        del entry['datetime']
+                        del entry['item_id']
+                        del entry['balance_change']
+                        
+                        data.append(entry)
+                    except Exception as e:
+                        print(f"Error processing entry in PDF export: {str(e)}")
+                        # Skip this entry if there's an error
+                        continue
+                
+                # Fetch category name for Register Type
+                category_name = None
+                category_id = filters.get('category')
+                if category_id:
+                    try:
+                        category_obj = Category.objects.get(id=category_id)
+                        category_name = category_obj.name
+                    except Category.DoesNotExist:
+                        category_name = "Unknown"
+                else:
+                    category_name = "Unknown"
+                
+                report_data = {
+                    'report_id': report.id,
+                    'report_type': 'register',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_records': len(data),
+                    'data': data,
+                    'register_type': category_name,  # Add register type for PDF
+                }
+                pdf_buffer = self._generate_pdf_content(report_data, 'register')
+                filename = f"register_report_{report.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
+            elif report.report_type == 'procurement':
+                queryset = Procurement.objects.all()
+                if filters.get('startDate'):
+                    start_date = self._parse_date_filter(filters['startDate'])
+                    if start_date:
+                        queryset = queryset.filter(created_at__gte=start_date)
+                if filters.get('endDate'):
+                    end_date = self._parse_date_filter(filters['endDate'])
+                    if end_date:
+                        end_date = timezone.make_aware(
+                            datetime.combine(end_date.date(), datetime.max.time()),
+                            timezone=timezone.get_current_timezone()
+                        )
+                        queryset = queryset.filter(created_at__lte=end_date)
+                if filters.get('item'):
+                    queryset = queryset.filter(items__item__id=filters['item'])
+                
+                print(f"Procurement queryset count: {queryset.count()}")
+                
+                report_data = {
+                    'report_id': report.id,
+                    'report_type': 'procurement',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_records': queryset.count(),
+                    'total_amount': sum(
+                        sum(float(item.unit_price) * item.quantity for item in p.items.all())
+                        for p in queryset
+                    ),
+                    'data': []
+                }
+                
+                for procurement in queryset:
+                    total_amount = sum(float(item.unit_price) * item.quantity for item in procurement.items.all())
+                    items_summary = ", ".join(
+                        f"{item.item.name} ({item.quantity})" for item in procurement.items.all()
+                    )
+                    report_data['data'].append({
+                        'order_number': procurement.order_number,
+                        'items_summary': items_summary,
+                        'supplier': procurement.supplier,
+                        'order_date': procurement.order_date,
+                        'total_amount': total_amount,
+                    })
+            
+            elif report.report_type == 'stock_movement':
+                queryset = StockMovement.objects.all()
+                if filters.get('startDate'):
+                    start_date = self._parse_date_filter(filters['startDate'])
+                    if start_date:
+                        queryset = queryset.filter(movement_date__gte=start_date.date())
+                if filters.get('endDate'):
+                    end_date = self._parse_date_filter(filters['endDate'])
+                    if end_date:
+                        queryset = queryset.filter(movement_date__lte=end_date.date())
+                if filters.get('user'):
+                    queryset = queryset.filter(received_by__id=filters['user'])
+                if filters.get('item'):
+                    queryset = queryset.filter(item__id=filters['item'])
+                if filters.get('from_location'):
+                    queryset = queryset.filter(from_location__id=filters['from_location'])
+                if filters.get('to_location'):
+                    queryset = queryset.filter(to_location__id=filters['to_location'])
+                
+                print(f"Stock movement queryset count: {queryset.count()}")
+                
+                report_data = {
+                    'report_id': report.id,
+                    'report_type': 'stock_movement',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_records': queryset.count(),
+                    'data': []
+                }
+                
+                for movement in queryset:
+                    report_data['data'].append({
+                        'item_name': movement.item.name,
+                        'quantity': movement.quantity,
+                        'from_location': movement.from_location.name,
+                        'to_location': movement.to_location.name,
+                        'movement_date': movement.movement_date,
+                        'received_by': movement.received_by.name,
+                        'notes': movement.notes
+                    })
+            
+            elif report.report_type == 'inventory':
+                queryset = Item.objects.all()
+                if filters.get('item'):
+                    queryset = queryset.filter(id=filters['item'])
+                
+                print(f"Inventory queryset count: {queryset.count()}")
+                
+                report_data = {
+                    'report_id': report.id,
+                    'report_type': 'inventory',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_items': queryset.count(),
+                    'total_value': sum(float(item.unit_price) * sum(inv.quantity for inv in item.inventory_by_location.all()) for item in queryset),
+                    'data': []
+                }
+                
+                for item in queryset:
+                    total_quantity = sum(inv.quantity for inv in item.inventory_by_location.all())
+                    locations = ', '.join(inv.location.name for inv in item.inventory_by_location.all())
+                    report_data['data'].append({
+                        'item_name': item.name,
+                        'category': item.category.name,
+                        'location': locations,
+                        'quantity': total_quantity,
+                        'unit_price': float(item.unit_price),
+                        'total_value': float(item.unit_price) * total_quantity
+                    })
+            
+            elif report.report_type == 'stock_requests':
+                queryset = SendingStockRequest.objects.all()
+                if filters.get('startDate'):
+                    start_date = self._parse_date_filter(filters['startDate'])
+                    if start_date:
+                        queryset = queryset.filter(created_at__gte=start_date)
+                if filters.get('endDate'):
+                    end_date = self._parse_date_filter(filters['endDate'])
+                    if end_date:
+                        end_date = timezone.make_aware(
+                            datetime.combine(end_date.date(), datetime.max.time()),
+                            timezone=timezone.get_current_timezone()
+                        )
+                        queryset = queryset.filter(created_at__lte=end_date)
+                if filters.get('status'):
+                    queryset = queryset.filter(status=filters['status'])
+                if filters.get('user'):
+                    queryset = queryset.filter(requested_by__id=filters['user'])
+                if filters.get('item'):
+                    queryset = queryset.filter(item__id=filters['item'])
+                
+                print(f"Stock requests queryset count: {queryset.count()}")
+                
+                report_data = {
+                    'report_id': report.id,
+                    'report_type': 'stock_requests',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_records': queryset.count(),
+                    'pending_requests': queryset.filter(status='Pending').count(),
+                    'approved_requests': queryset.filter(status='Approved').count(),
+                    'rejected_requests': queryset.filter(status='Rejected').count(),
+                    'data': []
+                }
+                
+                for request_item in queryset:
+                    report_data['data'].append({
+                        'item_name': request_item.item.name,
+                        'quantity': request_item.quantity,
+                        'status': request_item.status,
+                        'requested_by': str(request_item.requested_by) if request_item.requested_by else 'Unknown',
+                        'created_at': request_item.created_at
+                    })
+            
+            elif report.report_type == 'discarded_items':
+                queryset = DiscardedItem.objects.all()
+                if filters.get('startDate'):
+                    start_date = self._parse_date_filter(filters['startDate'])
+                    if start_date:
+                        queryset = queryset.filter(date__gte=start_date.date())
+                if filters.get('endDate'):
+                    end_date = self._parse_date_filter(filters['endDate'])
+                    if end_date:
+                        queryset = queryset.filter(date__lte=end_date.date())
+                if filters.get('reason'):
+                    queryset = queryset.filter(reason=filters['reason'])
+                if filters.get('user'):
+                    queryset = queryset.filter(discarded_by__id=filters['user'])
+                if filters.get('item'):
+                    queryset = queryset.filter(item__id=filters['item'])
+                if filters.get('location'):
+                    queryset = queryset.filter(location__id=filters['location'])
+                
+                print(f"Discarded items queryset count: {queryset.count()}")
+                
+                report_data = {
+                    'report_id': report.id,
+                    'report_type': 'discarded_items',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_records': queryset.count(),
+                    'total_quantity_discarded': sum(item.quantity for item in queryset),
+                    'data': []
+                }
+                
+                for discarded_item in queryset:
+                    report_data['data'].append({
+                        'id': discarded_item.id,
+                        'item_name': discarded_item.item.name,
+                        'location': discarded_item.location.name,
+                        'quantity': discarded_item.quantity,
+                        'date': discarded_item.date,
+                        'reason': discarded_item.reason,
+                        'discarded_by': discarded_item.discarded_by.name if discarded_item.discarded_by else 'Unknown',
+                    })
+            
+            elif report.report_type == 'categories':
+                category_id = filters.get('category')
+                if not category_id:
+                    return Response({'error': 'Category filter is required.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                items = Item.objects.filter(category__id=category_id)
+                
+                print(f"Categories report queryset count: {items.count()}")
+                
+                report_data = {
+                    'report_id': report.id,
+                    'report_type': 'categories',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_items': items.count(),
+                    'data': []
+                }
+                
+                for item in items:
+                    total_quantity = sum(inv.quantity for inv in item.inventory_by_location.all())
+                    locations = ', '.join(inv.location.name for inv in item.inventory_by_location.all())
+                    report_data['data'].append({
+                        'id': item.id,
+                        'category_name': item.category.name,
+                        'item_name': item.name,
+                        'item_count': total_quantity,
+                        'unit_price': float(item.unit_price),
+                        'total_value': float(item.unit_price) * total_quantity,
+                        'locations': locations,
+                    })
+            
+            print(f"Report data prepared: {len(report_data.get('data', [])) if report_data else 0} items")
+            
+            if not report_data:
+                return Response(
+                    {'error': 'Report data not found'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Generate PDF
+            pdf_buffer = self._generate_pdf_content(report_data, report.report_type)
+            
+            # Create filename
+            filename = f"{report.report_type}_report_{report.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            
+            # Create HTTP response with PDF
+            response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            return response
+            
+        except Exception as e:
+            print(f"Error in export_pdf: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {'error': f'Failed to export PDF: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['post'])
+    def export_excel(self, request, pk=None):
+        """Export report as Excel"""
+        try:
+            # Get the report object
+            try:
+                report = self.get_object()
+            except Exception as e:
+                print(f"Error getting report object: {str(e)}")
+                # Try to get the report directly using pk
+                if pk:
+                    try:
+                        report = Report.objects.get(id=pk)
+                    except Report.DoesNotExist:
+                        return Response(
+                            {'error': f'Report with ID {pk} not found'}, 
+                            status=status.HTTP_404_NOT_FOUND
+                        )
+                else:
+                    return Response(
+                        {'error': 'Report ID not provided'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            # Get the report data based on report type
+            report_data = None
+            filters = report.filters or {}
+            print(f"Exporting Excel for report {report.id} of type {report.report_type}")
+            print(f"Filters: {filters}")
+
+            if report.report_type == 'register':
+                # Import time at the top level
+                from datetime import time
+                
+                # Get main store location
+                from ..models import Location, ProcurementItem
+                try:
+                    main_store = Location.get_main_store()
+                    if not main_store:
+                        return Response(
+                            {'error': 'Main store location not found'}, 
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                        )
+                except Exception as e:
+                    return Response(
+                        {'error': f'Failed to get main store location: {str(e)}'}, 
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+                
+                # Collect all data entries (both stock movements and procurements)
+                all_entries = []
+                
+                # Parse date filters once at the beginning
+                start_date = self._parse_date_filter(filters.get('startDate'))
+                end_date = self._parse_date_filter(filters.get('endDate'))
+                
+                # 1. Get StockMovement records for items in the selected category
+                try:
+                    stock_movements = StockMovement.objects.filter(
+                        item__category__id=filters.get('category')
+                    ).order_by('movement_date', 'id')
+                    
+                    # Apply date filters to stock movements
+                    if start_date:
+                        stock_movements = stock_movements.filter(movement_date__gte=start_date.date())
+                    if end_date:
+                        stock_movements = stock_movements.filter(movement_date__lte=end_date.date())
+                    
+                    # Filter for movements involving main store (either from or to)
+                    stock_movements = stock_movements.filter(
+                        Q(from_location=main_store) | Q(to_location=main_store)
+                    )
+                    
+                    # Convert stock movements to register entries
+                    for movement in stock_movements:
+                        # Determine if this is a receipt or issue
+                        if movement.to_location == main_store:
+                            # Receipt into main store
+                            received_issued = 'Received'
+                            received = movement.quantity
+                            issued = ''
+                            balance_change = movement.quantity  # Positive for received
+                            # Create descriptive remarks for received items
+                            remarks = movement.notes or f"Stock movement from {movement.from_location.name} to {movement.to_location.name}"
+                        elif movement.from_location == main_store:
+                            # Issue from main store
+                            received_issued = 'Issued'
+                            received = ''
+                            issued = movement.quantity
+                            balance_change = -movement.quantity  # Negative for issued
+                            # Create descriptive remarks for issued items
+                            remarks = movement.notes or f"Stock movement from {movement.from_location.name} to {movement.to_location.name}"
+                        else:
+                            continue
+                        
+                        # Get voucher number from movement notes or create one
+                        voucher_no = movement.notes or f"MOV-{movement.id:06d}"
+                        
+                        # Create datetime for proper ordering - use morning time for received, afternoon for issued
+                        if received_issued == 'Received':
+                            # Received entries get morning time (9 AM)
+                            movement_time = time(hour=9, minute=0, second=0)
+                        else:
+                            # Issued entries get afternoon time (2 PM) to ensure they come after received entries
+                            movement_time = time(hour=14, minute=0, second=0)
+                        
+                        movement_datetime = timezone.make_aware(
+                            datetime.combine(movement.movement_date, movement_time),
+                            timezone=timezone.get_current_timezone()
+                        )
+                        
+                        all_entries.append({
+                            'datetime': movement_datetime,  # For sorting
+                            'date': movement.movement_date.strftime('%Y-%m-%d'),
+                            'receivedIssued': received_issued,
+                            'voucherNo': voucher_no,
+                            'particulars': movement.item.name,
+                            'unit': getattr(movement.item, 'unit', 'PCS'),
+                            'unitPrice': float(movement.item.unit_price),
+                            'totalCost': float(movement.item.unit_price) * movement.quantity,
+                            'quantity': {
+                                'received': received if received else '',
+                                'issued': issued if issued else '',
+                                'balance': 0,  # Will be calculated later
+                            },
+                            'remarks': remarks,
+                            'item_id': movement.item_id,
+                            'balance_change': balance_change,  # For balance calculation
+                        })
+                except Exception as e:
+                    print(f"Error processing stock movements in Excel export: {str(e)}")
+                    # Continue with empty stock movements if there's an error
+                    pass
+                
+                # 2. Get Procurement records for items in the selected category
+                try:
+                    procurements = Procurement.objects.filter(
+                        items__item__category__id=filters.get('category')
+                    ).order_by('order_date', 'id')
+                    
+                    # Apply date filters to procurements (use order_date for consistency)
+                    if start_date:
+                        procurements = procurements.filter(order_date__gte=start_date.date())
+                    if end_date:
+                        procurements = procurements.filter(order_date__lte=end_date.date())
+                    
+                    # Convert procurements to register entries
+                    for procurement in procurements:
+                        for proc_item in procurement.items.all():
+                            if proc_item.item.category.id == int(filters.get('category')):
+                                # This is a receipt into main store from procurement
+                                voucher_no = f"PO-{procurement.order_number}"
+                                
+                                # Use morning time (8 AM) for procurement entries to ensure they come first
+                                procurement_time = timezone.make_aware(
+                                    datetime.combine(procurement.order_date, time(hour=8, minute=0, second=0)),
+                                    timezone=timezone.get_current_timezone()
+                                )
+                                
+                                all_entries.append({
+                                    'datetime': procurement_time,  # For chronological ordering
+                                    'date': procurement.order_date.strftime('%Y-%m-%d'),
+                                    'receivedIssued': 'Received',
+                                    'voucherNo': voucher_no,
+                                    'particulars': proc_item.item.name,
+                                    'unit': getattr(proc_item.item, 'unit', 'PCS'),
+                                    'unitPrice': float(proc_item.unit_price),
+                                    'totalCost': float(proc_item.unit_price) * proc_item.quantity,
+                                    'quantity': {
+                                        'received': proc_item.quantity,
+                                        'issued': '',
+                                        'balance': 0,  # Will be calculated later
+                                    },
+                                    'remarks': f"Procurement from {procurement.supplier}",
+                                    'item_id': proc_item.item_id,
+                                    'balance_change': proc_item.quantity,  # Positive for received
+                                })
+                except Exception as e:
+                    print(f"Error processing procurements in Excel export: {str(e)}")
+                    # Continue with empty procurements if there's an error
+                    pass
+                
+                # Check if we have any data
+                if not all_entries:
+                    return Response(
+                        {'error': 'No data found for the selected category and date range'}, 
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                
+                # Sort all entries by exact datetime for proper chronological order
+                all_entries.sort(key=lambda x: (x['datetime'], x['receivedIssued'] == 'Issued'))
+                
+                # Debug: Print the order of entries
+                print("DEBUG: Sorted entries order:")
+                for i, entry in enumerate(all_entries):
+                    print(f"  {i+1}. {entry['date']} - {entry['receivedIssued']} - {entry['particulars']} - Qty: {entry['balance_change']}")
+                
+                # Calculate running balance per item
+                balance_map = {}  # {item_id: balance}
+                data = []
+                
+                for entry in all_entries:
+                    try:
+                        item_id = entry['item_id']
+                        prev_balance = balance_map.get(item_id, 0)
+                        
+                        # Calculate the new balance
+                        new_balance = prev_balance + entry['balance_change']
+                        balance_map[item_id] = new_balance
+                        
+                        # Update the balance in the entry
+                        entry['quantity']['balance'] = new_balance
+                        
+                        # Remove helper fields
+                        del entry['datetime']
+                        del entry['item_id']
+                        del entry['balance_change']
+                        
+                        data.append(entry)
+                    except Exception as e:
+                        print(f"Error processing entry in Excel export: {str(e)}")
+                        # Skip this entry if there's an error
+                        continue
+                
+                report_data = {
+                    'report_id': report.id,
+                    'report_type': 'register',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_records': len(data),
+                    'data': data
+                }
+                excel_buffer = self._generate_excel_content(report_data, 'register')
+                filename = f"register_report_{report.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                response = HttpResponse(excel_buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
+            elif report.report_type == 'procurement':
+                queryset = Procurement.objects.all()
+                if filters.get('startDate'):
+                    start_date = self._parse_date_filter(filters['startDate'])
+                    if start_date:
+                        queryset = queryset.filter(created_at__gte=start_date)
+                if filters.get('endDate'):
+                    end_date = self._parse_date_filter(filters['endDate'])
+                    if end_date:
+                        end_date = timezone.make_aware(
+                            datetime.combine(end_date.date(), datetime.max.time()),
+                            timezone=timezone.get_current_timezone()
+                        )
+                        queryset = queryset.filter(created_at__lte=end_date)
+                if filters.get('item'):
+                    queryset = queryset.filter(items__item__id=filters['item'])
+                
+                report_data = {
+                    'report_id': report.id,
+                    'report_type': 'procurement',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_records': queryset.count(),
+                    'total_amount': sum(
+                        sum(float(item.unit_price) * item.quantity for item in p.items.all())
+                        for p in queryset
+                    ),
+                    'data': []
+                }
+                
+                for procurement in queryset:
+                    total_amount = sum(float(item.unit_price) * item.quantity for item in procurement.items.all())
+                    items_summary = ", ".join(
+                        f"{item.item.name} ({item.quantity})" for item in procurement.items.all()
+                    )
+                    report_data['data'].append({
+                        'order_number': procurement.order_number,
+                        'items_summary': items_summary,
+                        'supplier': procurement.supplier,
+                        'order_date': procurement.order_date,
+                        'total_amount': total_amount,
+                    })
+            
+            elif report.report_type == 'stock_movement':
+                queryset = StockMovement.objects.all()
+                if filters.get('startDate'):
+                    start_date = self._parse_date_filter(filters['startDate'])
+                    if start_date:
+                        queryset = queryset.filter(movement_date__gte=start_date.date())
+                if filters.get('endDate'):
+                    end_date = self._parse_date_filter(filters['endDate'])
+                    if end_date:
+                        queryset = queryset.filter(movement_date__lte=end_date.date())
+                if filters.get('user'):
+                    queryset = queryset.filter(received_by__id=filters['user'])
+                if filters.get('item'):
+                    queryset = queryset.filter(item__id=filters['item'])
+                if filters.get('from_location'):
+                    queryset = queryset.filter(from_location__id=filters['from_location'])
+                if filters.get('to_location'):
+                    queryset = queryset.filter(to_location__id=filters['to_location'])
+                
+                report_data = {
+                    'report_id': report.id,
+                    'report_type': 'stock_movement',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_records': queryset.count(),
+                    'data': []
+                }
+                
+                for movement in queryset:
+                    report_data['data'].append({
+                        'item_name': movement.item.name,
+                        'quantity': movement.quantity,
+                        'from_location': movement.from_location.name,
+                        'to_location': movement.to_location.name,
+                        'movement_date': movement.movement_date,
+                        'received_by': movement.received_by.name,
+                        'notes': movement.notes
+                    })
+            
+            elif report.report_type == 'inventory':
+                queryset = Item.objects.all()
+                if filters.get('item'):
+                    queryset = queryset.filter(id=filters['item'])
+                
+                report_data = {
+                    'report_id': report.id,
+                    'report_type': 'inventory',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_items': queryset.count(),
+                    'total_value': sum(float(item.unit_price) * sum(inv.quantity for inv in item.inventory_by_location.all()) for item in queryset),
+                    'data': []
+                }
+                
+                for item in queryset:
+                    total_quantity = sum(inv.quantity for inv in item.inventory_by_location.all())
+                    locations = ', '.join(inv.location.name for inv in item.inventory_by_location.all())
+                    report_data['data'].append({
+                        'item_name': item.name,
+                        'category': item.category.name,
+                        'location': locations,
+                        'quantity': total_quantity,
+                        'unit_price': float(item.unit_price),
+                        'total_value': float(item.unit_price) * total_quantity
+                    })
+            
+            elif report.report_type == 'stock_requests':
+                queryset = SendingStockRequest.objects.all()
+                if filters.get('startDate'):
+                    start_date = self._parse_date_filter(filters['startDate'])
+                    if start_date:
+                        queryset = queryset.filter(created_at__gte=start_date)
+                if filters.get('endDate'):
+                    end_date = self._parse_date_filter(filters['endDate'])
+                    if end_date:
+                        end_date = timezone.make_aware(
+                            datetime.combine(end_date.date(), datetime.max.time()),
+                            timezone=timezone.get_current_timezone()
+                        )
+                        queryset = queryset.filter(created_at__lte=end_date)
+                if filters.get('status'):
+                    queryset = queryset.filter(status=filters['status'])
+                if filters.get('user'):
+                    queryset = queryset.filter(requested_by__id=filters['user'])
+                if filters.get('item'):
+                    queryset = queryset.filter(item__id=filters['item'])
+                
+                report_data = {
+                    'report_id': report.id,
+                    'report_type': 'stock_requests',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_records': queryset.count(),
+                    'pending_requests': queryset.filter(status='Pending').count(),
+                    'approved_requests': queryset.filter(status='Approved').count(),
+                    'rejected_requests': queryset.filter(status='Rejected').count(),
+                    'data': []
+                }
+                
+                for request_item in queryset:
+                    report_data['data'].append({
+                        'item_name': request_item.item.name,
+                        'quantity': request_item.quantity,
+                        'status': request_item.status,
+                        'requested_by': str(request_item.requested_by) if request_item.requested_by else 'Unknown',
+                        'created_at': request_item.created_at
+                    })
+            
+            elif report.report_type == 'discarded_items':
+                queryset = DiscardedItem.objects.all()
+                if filters.get('startDate'):
+                    start_date = self._parse_date_filter(filters['startDate'])
+                    if start_date:
+                        queryset = queryset.filter(date__gte=start_date.date())
+                if filters.get('endDate'):
+                    end_date = self._parse_date_filter(filters['endDate'])
+                    if end_date:
+                        queryset = queryset.filter(date__lte=end_date.date())
+                if filters.get('reason'):
+                    queryset = queryset.filter(reason=filters['reason'])
+                if filters.get('user'):
+                    queryset = queryset.filter(discarded_by__id=filters['user'])
+                if filters.get('item'):
+                    queryset = queryset.filter(item__id=filters['item'])
+                if filters.get('location'):
+                    queryset = queryset.filter(location__id=filters['location'])
+                
+                report_data = {
+                    'report_id': report.id,
+                    'report_type': 'discarded_items',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_records': queryset.count(),
+                    'total_quantity_discarded': sum(item.quantity for item in queryset),
+                    'data': []
+                }
+                
+                for discarded_item in queryset:
+                    report_data['data'].append({
+                        'id': discarded_item.id,
+                        'item_name': discarded_item.item.name,
+                        'location': discarded_item.location.name,
+                        'quantity': discarded_item.quantity,
+                        'date': discarded_item.date,
+                        'reason': discarded_item.reason,
+                        'discarded_by': discarded_item.discarded_by.name if discarded_item.discarded_by else 'Unknown',
+                    })
+            
+            elif report.report_type == 'categories':
+                category_id = filters.get('category')
+                if not category_id:
+                    return Response({'error': 'Category filter is required.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                items = Item.objects.filter(category__id=category_id)
+                
+                report_data = {
+                    'report_id': report.id,
+                    'report_type': 'categories',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_items': items.count(),
+                    'data': []
+                }
+                
+                for item in items:
+                    total_quantity = sum(inv.quantity for inv in item.inventory_by_location.all())
+                    locations = ', '.join(inv.location.name for inv in item.inventory_by_location.all())
+                    report_data['data'].append({
+                        'id': item.id,
+                        'category_name': item.category.name,
+                        'item_name': item.name,
+                        'item_count': total_quantity,
+                        'unit_price': float(item.unit_price),
+                        'total_value': float(item.unit_price) * total_quantity,
+                        'locations': locations,
+                    })
+            
+            if not report_data:
+                return Response(
+                    {'error': 'Report data not found'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Generate Excel
+            excel_buffer = self._generate_excel_content(report_data, report.report_type)
+            
+            # Create filename
+            filename = f"{report.report_type}_report_{report.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
+            # Create HTTP response with Excel
+            response = HttpResponse(excel_buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            return response
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to export Excel: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'])
+    def generate_categories_report(self, request):
+        """Generate a report of items in a selected category, with inventory details."""
+        try:
+            filters = request.data.get('filters', {})
+            category_id = filters.get('category')
+            if not category_id:
+                return Response({'error': 'Category filter is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            items = Item.objects.filter(category__id=category_id)
+            
+            # Create report record
+            report = Report.objects.create(
+                report_type='categories',
+                filters=filters,
+                generated_by=self._get_generated_by_user(request)
+            )
+            
+            report_data = {
+                'report_id': report.id,
+                'report_type': 'categories',
+                'generated_at': report.generated_at,
+                'filters': filters,
+                'total_items': items.count(),
+                'data': []
+            }
+            for item in items:
+                total_quantity = sum(inv.quantity for inv in item.inventory_by_location.all())
+                locations = ', '.join(inv.location.name for inv in item.inventory_by_location.all())
+                report_data['data'].append({
+                    'id': item.id,
+                    'category_name': item.category.name,
+                    'item_name': item.name,
+                    'item_count': total_quantity,
+                    'unit_price': float(item.unit_price),
+                    'total_value': float(item.unit_price) * total_quantity,
+                    'locations': locations,
+                })
+            return Response(report_data, status=status.HTTP_200_OK)
+        except Exception as e:
+            import traceback
+            print("CATEGORIES REPORT ERROR:", e)
+            traceback.print_exc()
+            return Response(
+                {'error': f'Failed to generate categories report: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'])
+    def generate_register_report(self, request):
+        """Generate register report showing stock movements in/out of main store for selected category"""
+        try:
+            filters = request.data.get('filters', {})
+            
+            # Validate required filters
+            if not filters.get('category'):
+                return Response(
+                    {'error': 'Category filter is required for register report'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Import time at the top level
+            from datetime import time
+            
+            # Get main store location
+            from ..models import Location, ProcurementItem
+            try:
+                main_store = Location.get_main_store()
+                if not main_store:
+                    return Response(
+                        {'error': 'Main store location not found'}, 
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+            except Exception as e:
+                return Response(
+                    {'error': f'Failed to get main store location: {str(e)}'}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            # Collect all data entries (both stock movements and procurements)
+            all_entries = []
+            
+            # Parse date filters once at the beginning
+            start_date = self._parse_date_filter(filters.get('startDate'))
+            end_date = self._parse_date_filter(filters.get('endDate'))
+            
+            # 1. Get StockMovement records for items in the selected category
+            try:
+                stock_movements = StockMovement.objects.filter(
+                    item__category__id=filters.get('category')
+                ).order_by('movement_date', 'id')
+                
+                # Apply date filters to stock movements
+                if start_date:
+                    stock_movements = stock_movements.filter(movement_date__gte=start_date.date())
+                if end_date:
+                    stock_movements = stock_movements.filter(movement_date__lte=end_date.date())
+                
+                # Filter for movements involving main store (either from or to)
+                stock_movements = stock_movements.filter(
+                    Q(from_location=main_store) | Q(to_location=main_store)
+                )
+                
+                # Convert stock movements to register entries
+                for movement in stock_movements:
+                    # Determine if this is a receipt or issue
+                    if movement.to_location == main_store:
+                        # Receipt into main store
+                        received_issued = 'Received'
+                        received = movement.quantity
+                        issued = ''
+                        balance_change = movement.quantity  # Positive for received
+                        # Create descriptive remarks for received items
+                        remarks = movement.notes or f"Stock movement from {movement.from_location.name} to {movement.to_location.name}"
+                    elif movement.from_location == main_store:
+                        # Issue from main store
+                        received_issued = 'Issued'
+                        received = ''
+                        issued = movement.quantity
+                        balance_change = -movement.quantity  # Negative for issued
+                        # Create descriptive remarks for issued items
+                        remarks = movement.notes or f"Stock movement from {movement.from_location.name} to {movement.to_location.name}"
+                    else:
+                        continue
+                    
+                    # Get voucher number from movement notes or create one
+                    voucher_no = movement.notes or f"MOV-{movement.id:06d}"
+                    
+                    # Create datetime for proper ordering - use morning time for received, afternoon for issued
+                    if received_issued == 'Received':
+                        # Received entries get morning time (9 AM)
+                        movement_time = time(hour=9, minute=0, second=0)
+                    else:
+                        # Issued entries get afternoon time (2 PM) to ensure they come after received entries
+                        movement_time = time(hour=14, minute=0, second=0)
+                    
+                    movement_datetime = timezone.make_aware(
+                        datetime.combine(movement.movement_date, movement_time),
+                        timezone=timezone.get_current_timezone()
+                    )
+                    
+                    all_entries.append({
+                        'datetime': movement_datetime,  # For sorting
+                        'date': movement.movement_date.strftime('%Y-%m-%d'),
+                        'receivedIssued': received_issued,
+                        'voucherNo': voucher_no,
+                        'particulars': movement.item.name,
+                        'unit': getattr(movement.item, 'unit', 'PCS'),
+                        'unitPrice': float(movement.item.unit_price),
+                        'totalCost': float(movement.item.unit_price) * movement.quantity,
+                        'quantity': {
+                            'received': received if received else '',
+                            'issued': issued if issued else '',
+                            'balance': 0,  # Will be calculated later
+                        },
+                        'remarks': remarks,
+                        'item_id': movement.item_id,
+                        'balance_change': balance_change,  # For balance calculation
+                    })
+            except Exception as e:
+                print(f"Error processing stock movements: {str(e)}")
+                # Continue with empty stock movements if there's an error
+                pass
+            
+            # 2. Get Procurement records for items in the selected category
+            try:
+                procurements = Procurement.objects.filter(
+                    items__item__category__id=filters.get('category')
+                ).order_by('order_date', 'id')
+                
+                # Apply date filters to procurements (use order_date for consistency)
+                if start_date:
+                    procurements = procurements.filter(order_date__gte=start_date.date())
+                if end_date:
+                    procurements = procurements.filter(order_date__lte=end_date.date())
+                
+                # Convert procurements to register entries
+                for procurement in procurements:
+                    for proc_item in procurement.items.all():
+                        if proc_item.item.category.id == int(filters.get('category')):
+                            # This is a receipt into main store from procurement
+                            voucher_no = f"PO-{procurement.order_number}"
+                            
+                            # Use morning time (8 AM) for procurement entries to ensure they come first
+                            procurement_time = timezone.make_aware(
+                                datetime.combine(procurement.order_date, time(hour=8, minute=0, second=0)),
+                                timezone=timezone.get_current_timezone()
+                            )
+                            
+                            all_entries.append({
+                                'datetime': procurement_time,  # For chronological ordering
+                                'date': procurement.order_date.strftime('%Y-%m-%d'),
+                                'receivedIssued': 'Received',
+                                'voucherNo': voucher_no,
+                                'particulars': proc_item.item.name,
+                                'unit': getattr(proc_item.item, 'unit', 'PCS'),
+                                'unitPrice': float(proc_item.unit_price),
+                                'totalCost': float(proc_item.unit_price) * proc_item.quantity,
+                                'quantity': {
+                                    'received': proc_item.quantity,
+                                    'issued': '',
+                                    'balance': 0,  # Will be calculated later
+                                },
+                                'remarks': f"Procurement from {procurement.supplier}",
+                                'item_id': proc_item.item_id,
+                                'balance_change': proc_item.quantity,  # Positive for received
+                            })
+            except Exception as e:
+                print(f"Error processing procurements: {str(e)}")
+                # Continue with empty procurements if there's an error
+                pass
+            
+            # Check if we have any data
+            if not all_entries:
+                # Create a Report object for export functionality even with no data
+                report = Report.objects.create(
+                    report_type='register',
+                    filters=filters,
+                    generated_by=self._get_generated_by_user(request)
+                )
+                
+                return Response({
+                    'report_id': report.id,
+                    'report_type': 'register',
+                    'generated_at': report.generated_at,
+                    'filters': filters,
+                    'total_records': 0,
+                    'data': [],
+                    'message': 'No data found for the selected category and date range'
+                }, status=status.HTTP_200_OK)
+            
+            # Sort all entries by exact datetime for proper chronological order
+            all_entries.sort(key=lambda x: (x['datetime'], x['receivedIssued'] == 'Issued'))
+            
+            # Calculate running balance per item
+            balance_map = {}  # {item_id: balance}
+            data = []
+            
+            for entry in all_entries:
+                try:
+                    item_id = entry['item_id']
+                    prev_balance = balance_map.get(item_id, 0)
+                    
+                    # Calculate the new balance
+                    new_balance = prev_balance + entry['balance_change']
+                    balance_map[item_id] = new_balance
+                    
+                    # Update the balance in the entry
+                    entry['quantity']['balance'] = new_balance
+                    
+                    # Remove helper fields
+                    del entry['datetime']
+                    del entry['item_id']
+                    del entry['balance_change']
+                    
+                    data.append(entry)
+                except Exception as e:
+                    print(f"Error processing entry: {str(e)}")
+                    # Skip this entry if there's an error
+                    continue
+            
+            # Create a Report object for export functionality
+            report = Report.objects.create(
+                report_type='register',
+                filters=filters,
+                generated_by=self._get_generated_by_user(request)
+            )
+            
+            return Response({
+                'report_id': report.id,
+                'report_type': 'register',
+                'generated_at': report.generated_at,
+                'filters': filters,
+                'total_records': len(data),
+                'data': data
+            })
+            
+        except Exception as e:
+            import traceback
+            print("REGISTER REPORT ERROR:", e)
+            traceback.print_exc()
+            return Response(
+                {'error': f'Failed to generate register report: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            ) 
