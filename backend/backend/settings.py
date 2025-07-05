@@ -113,7 +113,7 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'MaryamDB',
+        'NAME': 'LABSSS',
         'USER': 'postgres',
         'PASSWORD': '12345678',
         'HOST': 'localhost',        
