@@ -13,7 +13,7 @@ from .views.stockmovements import StockMovementViewSet
 from .views.sendingstockrequests import SendingStockRequestViewSet
 from .views.discardeditems import DiscardedItemViewSet
 from .views.reports import ReportViewSet
-from .views.auditlogs import AuditLogListView, AuditLogActionsView, AuditLogEntitiesView, AuditLogUsersView, AuditLogExportCSVView, AuditLogExportPDFView
+from .views.auditlogs import AuditLogListView, AuditLogActionsView, AuditLogEntitiesView, AuditLogUsersView, AuditLogExportPDFView, AuditLogExportExcelView
 from .views.user_views import user_dashboard_data, create_stock_request, user_stock_requests, user_inventory_view, user_location_inventory, available_items_for_request, user_profile_data
 
 
@@ -38,8 +38,8 @@ urlpatterns = [
     path('audit-logs/actions/', AuditLogActionsView.as_view(), name='audit-log-actions'),
     path('audit-logs/entities/', AuditLogEntitiesView.as_view(), name='audit-log-entities'),
     path('audit-logs/users/', AuditLogUsersView.as_view(), name='audit-log-users'),
-    path('audit-logs/export/csv/', AuditLogExportCSVView.as_view(), name='audit-log-export-csv'),
     path('audit-logs/export/pdf/', AuditLogExportPDFView.as_view(), name='audit-log-export-pdf'),
+    path('audit-logs/export/excel/', AuditLogExportExcelView.as_view(), name='audit-log-export-excel'),
     
     # User-specific endpoints
     path('user/dashboard/', user_dashboard_data, name='user-dashboard'),

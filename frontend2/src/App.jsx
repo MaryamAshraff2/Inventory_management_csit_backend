@@ -26,6 +26,11 @@ import AuditLogs from "./pages/AuditLogs";
 import DeadStock from './pages/DeadStock';
 
 function App() {
+  // Always clear login state on app load to force login page
+  localStorage.removeItem('isLoggedIn');
+  localStorage.removeItem('userType');
+  localStorage.removeItem('portalID');
+
   // Determine which dashboard to show based on userType
   const getDashboardComponent = () => {
     const userType = localStorage.getItem("userType");

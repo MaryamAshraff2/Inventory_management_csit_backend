@@ -1,3 +1,4 @@
+import axios from "axios";
 const API_BASE_URL = 'http://localhost:8000/inventory';
 
 // Helper function to handle API responses
@@ -327,21 +328,6 @@ export const auditLogsAPI = {
   getActions: async () => apiRequest('/audit-logs/actions/'),
   getEntities: async () => apiRequest('/audit-logs/entities/'),
   getUsers: async () => apiRequest('/audit-logs/users/'),
-  exportCSV: async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    const url = `${API_BASE_URL}/audit-logs/export/csv/${query ? `?${query}` : ''}`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to export CSV');
-    const blob = await response.blob();
-    const downloadUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = 'audit_logs.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(downloadUrl);
-  },
   exportPDF: async (params = {}) => {
     const query = new URLSearchParams(params).toString();
     const url = `${API_BASE_URL}/audit-logs/export/pdf/${query ? `?${query}` : ''}`;
@@ -356,5 +342,11 @@ export const auditLogsAPI = {
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(downloadUrl);
+  },
+  exportExcel: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return axios.get(`${API_BASE_URL}/audit-logs/export/excel/${query ? `?${query}` : ""}`, {
+      responseType: "blob",
+    });
   },
 }; 

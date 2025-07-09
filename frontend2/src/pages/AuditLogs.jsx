@@ -3,6 +3,7 @@ import Navbar from '../components/Navbar';
 import { useState, useEffect } from 'react';
 import { FiSearch, FiGrid, FiClock } from 'react-icons/fi';
 import { auditLogsAPI } from '../services/api';
+import { FaFilePdf, FaFileExcel } from 'react-icons/fa';
 
 const AuditLogs = () => {
   const [activeTab, setActiveTab] = useState('table');
@@ -46,14 +47,7 @@ const AuditLogs = () => {
     fetchLogs();
   }, [search, selectedAction, selectedEntity, selectedUser]);
 
-  const handleExportCSV = () => {
-    const params = {};
-    if (search) params.search = search;
-    if (selectedAction) params.action = selectedAction;
-    if (selectedEntity) params.entity_type = selectedEntity;
-    if (selectedUser) params.performed_by = selectedUser;
-    auditLogsAPI.exportCSV(params);
-  };
+  // Remove the handleExportCSV function and the Export CSV button from the Audit Log page UI
   const handleExportPDF = () => {
     const params = {};
     if (search) params.search = search;
@@ -61,6 +55,27 @@ const AuditLogs = () => {
     if (selectedEntity) params.entity_type = selectedEntity;
     if (selectedUser) params.performed_by = selectedUser;
     auditLogsAPI.exportPDF(params);
+  };
+  const handleExportExcel = async () => {
+    try {
+      const params = {};
+      if (search) params.search = search;
+      if (selectedAction) params.action = selectedAction;
+      if (selectedEntity) params.entity_type = selectedEntity;
+      if (selectedUser) params.performed_by = selectedUser;
+
+      const response = await auditLogsAPI.exportExcel(params);
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "audit_logs.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Excel export failed", error);
+    }
   };
 
   return (
@@ -71,8 +86,24 @@ const AuditLogs = () => {
         <main className="flex-1 overflow-y-auto p-6 bg-gray-100">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 w-full">
             {/* Header */}
-            <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Manage and review audit logs</h3>
+              <div className="flex gap-2">
+                <button
+                  className="flex items-center bg-white text-gray-700 px-4 py-1.5 rounded-md font-medium border border-gray-200 hover:bg-gray-100 transition text-sm shadow-sm"
+                  onClick={handleExportPDF}
+                  type="button"
+                >
+                  <FaFilePdf className="mr-2 text-red-400" /> Export PDF
+                </button>
+                <button
+                  className="flex items-center bg-white text-gray-700 px-4 py-1.5 rounded-md font-medium border border-gray-200 hover:bg-gray-100 transition text-sm shadow-sm"
+                  onClick={handleExportExcel}
+                  type="button"
+                >
+                  <FaFileExcel className="mr-2 text-green-500" /> Export Excel
+                </button>
+              </div>
             </div>
             {/* Tabs Toggle */}
             <div className="px-4 sm:px-6 border-b border-gray-200" style={{background: 'transparent'}}>
@@ -135,11 +166,6 @@ const AuditLogs = () => {
                       <option key={user.id} value={user.id}>{user.name}</option>
                     ))}
                   </select>
-                </div>
-                {/* Export Buttons */}
-                <div className="flex gap-2">
-                  <button className="bg-gray-200 px-4 py-2 rounded" onClick={handleExportCSV}>Export CSV</button>
-                  <button className="bg-gray-200 px-4 py-2 rounded" onClick={handleExportPDF}>Export PDF</button>
                 </div>
               </div>
             </div>
