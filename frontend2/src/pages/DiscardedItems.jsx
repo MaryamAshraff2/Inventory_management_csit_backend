@@ -67,10 +67,8 @@ const DiscardedItems = () => {
 
   const handleSubmitDiscardedItem = async (formData) => {
     try {
-      // The form data already has the correct structure for the API
       await discardedItemsAPI.create(formData);
       setShowForm(false);
-      // Refresh the list
       fetchDiscardedItems();
     } catch (err) {
       console.error('Failed to create discarded item:', err);
@@ -202,13 +200,15 @@ const DiscardedItems = () => {
       </div>
 
       {/* Add Discarded Item Form */}
-      <AddDiscardedItemForm 
-        show={showForm}
-        onClose={() => setShowForm(false)} 
-        onSubmit={handleSubmitDiscardedItem} 
-        locations={locations}
-        users={users}
-      />
+      {showForm && (
+        <AddDiscardedItemForm
+          show={showForm}
+          onClose={() => setShowForm(false)}
+          onSubmit={handleSubmitDiscardedItem}
+          locations={locations}
+          users={users}
+        />
+      )}
 
       {/* Details Modal */}
       {showDetails && selectedItem && (

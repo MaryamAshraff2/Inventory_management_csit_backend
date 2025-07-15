@@ -15,6 +15,7 @@ from .views.discardeditems import DiscardedItemViewSet
 from .views.reports import ReportViewSet
 from .views.auditlogs import AuditLogListView, AuditLogActionsView, AuditLogEntitiesView, AuditLogUsersView, AuditLogExportPDFView, AuditLogExportExcelView
 from .views.user_views import user_dashboard_data, create_stock_request, user_stock_requests, user_inventory_view, user_location_inventory, available_items_for_request, user_profile_data
+from .views.discardrequest import user_discard_requests, admin_pending_discard_requests, admin_process_discard_request
 
 
 # Router for ViewSets
@@ -49,6 +50,10 @@ urlpatterns = [
     path('user/location-inventory/', user_location_inventory, name='user-location-inventory'),
     path('user/available-items/', available_items_for_request, name='available-items'),
     path('user/profile/', user_profile_data, name='user-profile'),
+    # Discard request workflow
+    path('user/discard-requests/', user_discard_requests, name='user-discard-requests'),
+    path('admin/discard-requests/pending/', admin_pending_discard_requests, name='admin-pending-discard-requests'),
+    path('admin/discard-requests/<int:pk>/process/', admin_process_discard_request, name='admin-process-discard-request'),
 ]
 
 

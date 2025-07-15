@@ -261,3 +261,23 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"{self.action} on {self.entity_type} by {self.performed_by} at {self.timestamp}"
+
+class DiscardRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+    reason = models.CharField(max_length=255)
+    notes = models.TextField(blank=True, null=True)
+    location = models.ForeignKey(Location, on_delete=models.CASCADE)
+    requested_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    date_requested = models.DateTimeField(auto_now_add=True)
+    date_processed = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.quantity} x {self.item.name} requested for discard at {self.location.name} by {self.requested_by.name} ({self.status})"

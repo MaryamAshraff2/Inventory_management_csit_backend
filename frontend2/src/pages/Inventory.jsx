@@ -72,7 +72,6 @@ const Inventory = () => {
     if (activeTab === "location" && selectedLocation && item.location !== selectedLocation) {
       return false;
     }
-    
     // Then filter by search term
     if (filterBy === "name") {
       return item.item_name && item.item_name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -195,8 +194,7 @@ const Inventory = () => {
                     </button>
                     {showLocationDropdown && (
                       <div className="absolute z-10 mt-1 w-full sm:w-48 bg-white shadow-lg rounded-md py-1 border border-gray-200 max-h-60 overflow-auto">
-                      
-                    {uniqueLocations.map((location) => (
+                        {uniqueLocations.map((location) => (
                           <div
                             key={location}
                             className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
@@ -371,75 +369,21 @@ const Inventory = () => {
                         </span>{" "}
                         items
                       </div>
-                      <div className="flex space-x-1">
-                        <button
-                          onClick={() =>
-                            setCurrentPage((p) => Math.max(p - 1, 1))
-                          }
-                          disabled={currentPage === 1}
-                          className="px-3 py-1 border rounded-md text-sm font-medium disabled:opacity-50"
-                        >
-                          Previous
-                        </button>
-                        {Array.from({ length: Math.min(5, totalPages) }).map(
-                          (_, i) => {
-                            const page =
-                              currentPage <= 3
-                                ? i + 1
-                                : currentPage >= totalPages - 2
-                                ? totalPages - 4 + i
-                                : currentPage - 2 + i;
-                            return (
-                              <button
-                                key={page}
-                                onClick={() => setCurrentPage(page)}
-                                className={`px-3 py-1 border rounded-md text-sm font-medium ${
-                                  currentPage === page
-                                    ? "bg-blue-50 text-blue-600 border-blue-300"
-                                    : "text-gray-700"
-                                }`}
-                              >
-                                {page}
-                              </button>
-                            );
-                          }
-                        )}
-                        <button
-                          onClick={() =>
-                            setCurrentPage((p) => Math.min(p + 1, totalPages))
-                          }
-                          disabled={currentPage === totalPages}
-                          className="px-3 py-1 border rounded-md text-sm font-medium disabled:opacity-50"
-                        >
-                          Next
-                        </button>
-                      </div>
                     </div>
                   )}
                 </>
               )}
             </div>
+            {/* Inventory Details Modal */}
+            {selectedItem && (
+              <InventoryDetails
+                item={selectedItem}
+                onClose={() => setSelectedItem(null)}
+              />
+            )}
           </div>
         </main>
       </div>
-
-      {/* Inventory Details Modal */}
-      {selectedItem && (
-        <InventoryDetails
-          item={{
-            id: selectedItem.id,
-            name: selectedItem.item_name,
-            quantity: selectedItem.available_qty,
-            procurementId: selectedItem.order_number,
-            location: selectedItem.location,
-            supplier: selectedItem.supplier,
-            orderDate: selectedItem.order_date,
-            unitPrice: selectedItem.unit_price,
-            // You can add more details here as needed
-          }}
-          onClose={() => setSelectedItem(null)}
-        />
-      )}
     </div>
   );
 };

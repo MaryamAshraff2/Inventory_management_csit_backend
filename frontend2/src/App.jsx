@@ -24,6 +24,7 @@ import Reports from "./pages/Reports";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuditLogs from "./pages/AuditLogs";
 import DeadStock from './pages/DeadStock';
+import UserDiscard from "./pages/UserDiscard";
 
 function App() {
   // Always clear login state on app load to force login page
@@ -215,6 +216,14 @@ function App() {
             }
           />
           <Route path="/dead-stock" element={<DeadStock />} />
+          <Route
+            path="/user-discard-requests"
+            element={
+              <ProtectedRoute>
+                <UserDiscard />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Catch-all route */}
           <Route

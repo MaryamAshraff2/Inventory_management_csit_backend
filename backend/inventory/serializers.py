@@ -3,7 +3,7 @@ from django.db import transaction
 import json
 from .models import (
     User, Department, Category, Item, Procurement, Location, ProcurementItem,
-    StockMovement, SendingStockRequest, DiscardedItem, Report, TotalInventory, InventoryByLocation, AuditLog
+    StockMovement, SendingStockRequest, DiscardedItem, Report, TotalInventory, InventoryByLocation, AuditLog, DiscardRequest
 )
 import logging
 from django.utils import timezone
@@ -350,6 +350,23 @@ class DiscardedItemSerializer(serializers.ModelSerializer):
                 dead_stock_category.save(update_fields=["dead_stock_count"])
 
             return discarded_item
+
+class DiscardRequestSerializer(serializers.ModelSerializer):
+    item = ItemSerializer(read_only=True)
+    item_id = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all(), source='item', write_only=True)
+    location = LocationSerializer(read_only=True)
+    location_id = serializers.PrimaryKeyRelatedField(queryset=Location.objects.all(), source='location', write_only=True)
+    requested_by = UserSerializer(read_only=True)
+    requested_by_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='requested_by', write_only=True)
+
+    class Meta:
+        model = DiscardRequest
+        fields = [
+            'id', 'item', 'item_id', 'quantity', 'reason', 'notes',
+            'location', 'location_id', 'requested_by', 'requested_by_id',
+            'status', 'date_requested', 'date_processed'
+        ]
+        read_only_fields = ['id', 'status', 'date_requested', 'date_processed', 'item', 'location', 'requested_by']
 
 class ReportSerializer(serializers.ModelSerializer):
     generated_by_name = serializers.CharField(source='generated_by.name', read_only=True)

@@ -211,23 +211,15 @@ const UserStockRequests = () => {
     }
   };
 
-  // Fetch available items and locations
+  // Fetch available items for lab1 only
   const fetchFormData = async () => {
     try {
-      const [itemsResponse, locationsResponse] = await Promise.all([
-        fetch('http://localhost:8000/inventory/user/available-items/'),
-        fetch('http://localhost:8000/inventory/locations/')
-      ]);
-
-      if (itemsResponse.ok) {
-        const itemsData = await itemsResponse.json();
+      const response = await fetch('http://localhost:8000/inventory/user/available-items/?location=lab1');
+      if (response.ok) {
+        const itemsData = await response.json();
         setAvailableItems(itemsData);
       }
-
-      if (locationsResponse.ok) {
-        const locationsData = await locationsResponse.json();
-        setLocations(locationsData);
-      }
+      // No need to fetch locations, as location is fixed to lab1
     } catch (err) {
       console.error('Error fetching form data:', err);
     }
@@ -249,6 +241,8 @@ const UserStockRequests = () => {
         body: JSON.stringify({
           item: newRequestData.item_id,
           quantity: newRequestData.quantity,
+          location: 'lab1',
+          requester: localStorage.getItem('portalID') || 'user',
         }),
       });
 

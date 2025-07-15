@@ -97,6 +97,7 @@ LOGGING = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5174",  # Your Vite frontend port
     "http://127.0.0.1:5174",
+    "http://127.0.0.1:5173",
     "http://localhost:8000",  # Django port
 ]
 

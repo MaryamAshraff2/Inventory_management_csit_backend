@@ -350,3 +350,21 @@ export const auditLogsAPI = {
     });
   },
 }; 
+
+// Discard Request Workflow API
+export const discardRequestsAPI = {
+  // User: Get own discard requests (filtered by location_id)
+  getUserRequests: (location_id) => apiRequest(`/user/discard-requests/?location_id=${location_id}`),
+  // User: Create a new discard request
+  createUserRequest: (data) => apiRequest('/user/discard-requests/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  // Admin: Get all pending discard requests
+  getAdminPendingRequests: () => apiRequest('/admin/discard-requests/pending/'),
+  // Admin: Process a discard request (approve/reject)
+  processAdminRequest: (id, action) => apiRequest(`/admin/discard-requests/${id}/process/`, {
+    method: 'POST',
+    body: JSON.stringify({ action }),
+  }),
+}; 
