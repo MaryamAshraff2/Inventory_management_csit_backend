@@ -17,7 +17,7 @@ const Dashboard = () => {
 
   // Check authentication on component mount
   useEffect(() => {
-    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true'
+    const isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true'
     if (!isLoggedIn) {
       navigate('/loginpage')
     }
@@ -46,8 +46,8 @@ const Dashboard = () => {
 
   // Handle logout
   const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn')
-    localStorage.removeItem('userType')
+    sessionStorage.removeItem('isLoggedIn')
+    sessionStorage.removeItem('userType')
     navigate('/loginpage')
   }
 
@@ -87,7 +87,7 @@ const Dashboard = () => {
           <div className="bg-white rounded-lg shadow p-6">
             {/* Dynamic greeting based on user type */}
             <h1 className="text-3xl font-bold text-gray-800 mb-6">
-              Hello {localStorage.getItem('userType') === 'admin' ? 'Admin' : 'User'}
+              Hello {sessionStorage.getItem('userType') === 'admin' ? 'Admin' : 'User'}
             </h1>
             
             {loading ? (

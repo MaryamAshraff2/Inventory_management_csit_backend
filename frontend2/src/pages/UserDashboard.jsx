@@ -3,8 +3,8 @@ import Navbar from '../components/Navbar';
 
 const UserDashboard = () => {
   const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('userType');
+    sessionStorage.removeItem('isLoggedIn');
+    sessionStorage.removeItem('userType');
     window.location.href = '/loginpage';
   };
 

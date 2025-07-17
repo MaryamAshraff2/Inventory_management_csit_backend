@@ -242,7 +242,7 @@ const UserStockRequests = () => {
           item: newRequestData.item_id,
           quantity: newRequestData.quantity,
           location: 'lab1',
-          requester: localStorage.getItem('portalID') || 'user',
+          requester: sessionStorage.getItem('portalID') || 'user',
         }),
       });
 

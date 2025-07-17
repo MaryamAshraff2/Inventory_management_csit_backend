@@ -18,7 +18,7 @@ const UserInventory = () => {
     const fetchInventory = async () => {
       try {
         setLoading(true);
-        const portalId = localStorage.getItem('portalID') || 'user';
+        const portalId = sessionStorage.getItem('portalID') || 'user';
         const response = await fetch(`http://localhost:8000/inventory/user/location-inventory/?portal_id=${portalId}`);
         if (response.ok) {
           const data = await response.json();

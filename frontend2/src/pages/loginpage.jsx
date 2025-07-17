@@ -169,21 +169,21 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (data.success) {
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('userType', userType);
-        localStorage.setItem('portalID', portalID);
+        sessionStorage.setItem('isLoggedIn', 'true');
+        sessionStorage.setItem('userType', userType);
+        sessionStorage.setItem('portalID', portalID);
         // Fetch and store user location info for user role
         if (userType === 'user') {
           try {
             const userDetails = await import('../services/api').then(m => m.usersAPI.getById(portalID));
             if (userDetails && userDetails.location) {
-              localStorage.setItem('user_location_id', userDetails.location.id);
-              localStorage.setItem('user_location', userDetails.location.name);
+              sessionStorage.setItem('user_location_id', userDetails.location.id);
+              sessionStorage.setItem('user_location', userDetails.location.name);
             }
           } catch (e) {
             // fallback: default to lab1/1
-            localStorage.setItem('user_location_id', '1');
-            localStorage.setItem('user_location', 'lab1');
+            sessionStorage.setItem('user_location_id', '1');
+            sessionStorage.setItem('user_location', 'lab1');
           }
         }
         // Navigate based on user type

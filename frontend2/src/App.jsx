@@ -28,13 +28,13 @@ import UserDiscard from "./pages/UserDiscard";
 
 function App() {
   // Always clear login state on app load to force login page
-  localStorage.removeItem('isLoggedIn');
-  localStorage.removeItem('userType');
-  localStorage.removeItem('portalID');
+  sessionStorage.removeItem('isLoggedIn');
+  sessionStorage.removeItem('userType');
+  sessionStorage.removeItem('portalID');
 
   // Determine which dashboard to show based on userType
   const getDashboardComponent = () => {
-    const userType = localStorage.getItem("userType");
+    const userType = sessionStorage.getItem("userType");
     return userType === "admin" ? <Dashboard /> : <UserDashboard />;
   };
 
@@ -62,7 +62,7 @@ function App() {
               <ProtectedRoute>
                 <Navigate
                   to={
-                    localStorage.getItem("userType") === "admin"
+                    sessionStorage.getItem("userType") === "admin"
                       ? "/admin-dashboard"
                       : "/user-dashboard"
                   }

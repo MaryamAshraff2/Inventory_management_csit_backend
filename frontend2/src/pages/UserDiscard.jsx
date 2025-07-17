@@ -25,7 +25,7 @@ const UserDiscard = () => {
   const fetchDiscardRequests = async () => {
     setLoading(true);
     try {
-      const location_id = localStorage.getItem('user_location_id') || 1;
+      const location_id = sessionStorage.getItem('user_location_id') || 1;
       const data = await discardRequestsAPI.getUserRequests(location_id);
       setRequests(data);
       setError(null);
@@ -58,14 +58,14 @@ const UserDiscard = () => {
   const handleNewRequest = async (formData) => {
     try {
       // Always use numeric location_id from localStorage
-      const location_id = localStorage.getItem('user_location_id') || 1;
+      const location_id = sessionStorage.getItem('user_location_id') || 1;
       const payload = {
         item_id: formData.item_id,
         quantity: formData.quantity,
         reason: formData.reason,
         notes: formData.notes,
         location_id: Number(location_id),
-        requested_by_id: localStorage.getItem('portalID') || 'user',
+        requested_by_id: sessionStorage.getItem('portalID') || 'user',
       };
       await discardRequestsAPI.createUserRequest(payload);
       setFormModalOpen(false);

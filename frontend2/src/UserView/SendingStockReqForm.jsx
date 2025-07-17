@@ -27,12 +27,12 @@ function SendingStockReqForm({ onClose, onSubmit, items = [] }) {
 
   // Set default values for user role
   useEffect(() => {
-    const userType = localStorage.getItem('userType');
+    const userType = sessionStorage.getItem('userType');
     if (userType === 'user') {
       setForm((prev) => ({
         ...prev,
         location: 'lab1',
-        requester: localStorage.getItem('portalID') || 'user',
+        requester: sessionStorage.getItem('portalID') || 'user',
       }));
     }
   }, []);
