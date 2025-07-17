@@ -116,7 +116,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'NED_Inventory',
         'USER': 'postgres',
-        'PASSWORD': '12345678',
+        'PASSWORD': '12345',
         'HOST': 'localhost',        
         'PORT': '5432',            
     }
