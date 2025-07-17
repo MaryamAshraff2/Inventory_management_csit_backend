@@ -5,6 +5,19 @@ import '../styles/navbar.css'
 const Navbar = ({ title, onLogout }) => {
   const [showDropdown, setShowDropdown] = useState(false)
 
+  // Default logout handler if not provided
+  const handleLogout = () => {
+    if (onLogout) {
+      onLogout();
+    } else {
+      sessionStorage.removeItem('isLoggedIn');
+      sessionStorage.removeItem('userType');
+      sessionStorage.removeItem('portalID');
+      window.location.href = '/loginpage';
+    }
+    setShowDropdown(false);
+  };
+
   return (
     <header className="navbar bg-white shadow-sm">
       <div className="flex items-center justify-between px-6 py-4">
@@ -38,10 +51,7 @@ const Navbar = ({ title, onLogout }) => {
             {showDropdown && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                 <button
-                  onClick={() => {
-                    onLogout()
-                    setShowDropdown(false)
-                  }}
+                  onClick={handleLogout}
                   className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >
                   Logout
