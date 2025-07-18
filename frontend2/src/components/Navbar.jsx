@@ -4,6 +4,13 @@ import '../styles/navbar.css'
 
 const Navbar = ({ title, onLogout }) => {
   const [showDropdown, setShowDropdown] = useState(false)
+  const userType = sessionStorage.getItem('userType') || 'user';
+
+  // Helper to get initials for avatar
+  const getInitials = () => {
+    if (userType === 'admin') return 'AD';
+    return 'US';
+  };
 
   // Default logout handler if not provided
   const handleLogout = () => {
@@ -42,9 +49,9 @@ const Navbar = ({ title, onLogout }) => {
               onClick={() => setShowDropdown(!showDropdown)}
             >
               <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                <span>AD</span>
+                <span>{getInitials()}</span>
               </div>
-              <span className="text-sm font-medium">Admin</span>
+              <span className="text-sm font-medium">{userType === 'admin' ? 'Admin' : 'User'}</span>
             </div>
             
             {/* Dropdown Menu */}
