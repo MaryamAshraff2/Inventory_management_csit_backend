@@ -4,6 +4,26 @@ import '../styles/navbar.css'
 
 const Navbar = ({ title, onLogout }) => {
   const [showDropdown, setShowDropdown] = useState(false)
+  const userType = sessionStorage.getItem('userType') || 'user';
+
+  // Helper to get initials for avatar
+  const getInitials = () => {
+    if (userType === 'admin') return 'AD';
+    return 'US';
+  };
+
+  // Default logout handler if not provided
+  const handleLogout = () => {
+    if (onLogout) {
+      onLogout();
+    } else {
+      sessionStorage.removeItem('isLoggedIn');
+      sessionStorage.removeItem('userType');
+      sessionStorage.removeItem('portalID');
+      window.location.href = '/loginpage';
+    }
+    setShowDropdown(false);
+  };
 
   return (
     <header className="navbar bg-white shadow-sm">
@@ -29,19 +49,16 @@ const Navbar = ({ title, onLogout }) => {
               onClick={() => setShowDropdown(!showDropdown)}
             >
               <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                <span>AD</span>
+                <span>{getInitials()}</span>
               </div>
-              <span className="text-sm font-medium">Admin</span>
+              <span className="text-sm font-medium">{userType === 'admin' ? 'Admin' : 'User'}</span>
             </div>
             
             {/* Dropdown Menu */}
             {showDropdown && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                 <button
-                  onClick={() => {
-                    onLogout()
-                    setShowDropdown(false)
-                  }}
+                  onClick={handleLogout}
                   className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >
                   Logout

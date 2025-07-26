@@ -9,8 +9,8 @@ const AddDiscardedItemUserForm = ({ show, onClose, onSubmit, locations = [], use
     quantity: '',
     reason: '',
     notes: '',
-    discarded_by_id: localStorage.getItem('portalID') || 'user',
-    location_id: localStorage.getItem('user_location_id') || 1,
+    discarded_by_id: sessionStorage.getItem('portalID') || 'user',
+    location_id: sessionStorage.getItem('user_location_id') || 1,
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ const AddDiscardedItemUserForm = ({ show, onClose, onSubmit, locations = [], use
   useEffect(() => {
     if (!show) return;
     // Get user location ID from localStorage or default to 1
-    const userLocationId = localStorage.getItem('user_location_id') || 1;
+    const userLocationId = sessionStorage.getItem('user_location_id') || 1;
     const fetchItems = async () => {
       try {
         const response = await itemsAPI.getItemsAtLocation(userLocationId);
@@ -33,7 +33,7 @@ const AddDiscardedItemUserForm = ({ show, onClose, onSubmit, locations = [], use
       quantity: '',
       reason: '',
       notes: '',
-      discarded_by_id: localStorage.getItem('portalID') || 'user',
+      discarded_by_id: sessionStorage.getItem('portalID') || 'user',
       location_id: userLocationId,
     });
     setErrors({});

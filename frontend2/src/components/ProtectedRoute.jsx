@@ -3,8 +3,8 @@ import { Navigate } from 'react-router-dom'
 
 const ProtectedRoute = ({ children, requiredRole = null }) => {
   // Check if user is logged in
-  const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true'
-  const userType = localStorage.getItem('userType')
+  const isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true'
+  const userType = sessionStorage.getItem('userType')
 
   // If not logged in, redirect to login page
   if (!isLoggedIn) {

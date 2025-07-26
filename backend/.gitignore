@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+ENV/
+env/
+
+# Django migrations (ignore only __pycache__ inside migrations)
+**/migrations/__pycache__/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Exported reports and documents (optional)
+report_exports/
+procurement_documents/ 

@@ -4,7 +4,7 @@ import '../styles/sidebar.css'
 
 const Sidebar = () => {
   const location = useLocation();
-  const userType = localStorage.getItem('userType'); // 'admin' or 'user'
+  const userType = sessionStorage.getItem('userType'); // 'admin' or 'user'
 
   // Helper function to determine active link
   const isActive = (path) => {
