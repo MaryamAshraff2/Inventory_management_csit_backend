@@ -3,7 +3,7 @@ from django.db import transaction
 import json
 from .models import (
     User, Department, Category, Item, Procurement, Location, ProcurementItem,
-    StockMovement, SendingStockRequest, DiscardedItem, Report, TotalInventory, InventoryByLocation, AuditLog, DiscardRequest
+    StockMovement, SendingStockRequest, DiscardedItem, Report, TotalInventory, InventoryByLocation, AuditLog, DiscardRequest, Transit, ContractSchedule, AmendmentOrder, DeliveryNote, DeliveredItem, ReceivingNote, ReceivedItem
 )
 import logging
 from django.utils import timezone
@@ -31,10 +31,13 @@ class UserSerializer(serializers.ModelSerializer):
     department = serializers.PrimaryKeyRelatedField(
         queryset=Department.objects.all(), write_only=False
     )
+    location = serializers.PrimaryKeyRelatedField(
+        queryset=Location.objects.all(), required=False, allow_null=True
+    )
 
     class Meta:
         model = User
-        fields = ['id', 'name', 'email', 'role', 'department', 'department_name']
+        fields = ['id', 'name', 'email', 'role', 'department', 'department_name', 'location']
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -422,3 +425,193 @@ class AuditLogSerializer(serializers.ModelSerializer):
         model = AuditLog
         fields = ['id', 'action', 'entity_type', 'performed_by', 'performed_by_id', 'timestamp', 'details']
         read_only_fields = ['id', 'timestamp', 'performed_by']
+
+class TransitSerializer(serializers.ModelSerializer):
+    item = ItemSerializer(read_only=True)
+    item_id = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all(), source='item', write_only=True)
+    from_location = LocationSerializer(read_only=True)
+    from_location_id = serializers.PrimaryKeyRelatedField(queryset=Location.objects.all(), source='from_location', write_only=True)
+    to_location = LocationSerializer(read_only=True)
+    to_location_id = serializers.PrimaryKeyRelatedField(queryset=Location.objects.all(), source='to_location', write_only=True)
+    sent_by = UserSerializer(read_only=True)
+    sent_by_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='sent_by', write_only=True)
+    received_by = UserSerializer(read_only=True)
+    received_by_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='received_by', write_only=True, required=False, allow_null=True)
+    
+    # Additional fields for API response
+    item_name = serializers.CharField(source='item.name', read_only=True)
+    from_location_name = serializers.CharField(source='from_location.name', read_only=True)
+    to_location_name = serializers.CharField(source='to_location.name', read_only=True)
+    sent_by_name = serializers.CharField(source='sent_by.name', read_only=True)
+    received_by_name = serializers.CharField(source='received_by.name', read_only=True)
+    
+    class Meta:
+        model = Transit
+        fields = [
+            'id', 'item', 'item_id', 'from_location', 'from_location_id',
+            'to_location', 'to_location_id', 'quantity', 'sent_by', 'sent_by_id',
+            'received_by', 'received_by_id', 'status', 'sent_date', 'received_date',
+            'notes', 'item_name', 'from_location_name', 'to_location_name',
+            'sent_by_name', 'received_by_name'
+        ]
+        read_only_fields = ['id', 'sent_date', 'received_date', 'status', 'received_by']
+
+    def create(self, validated_data):
+        """Create a transit and update inventory"""
+        from .models import InventoryByLocation
+        
+        with transaction.atomic():
+            # Create the transit
+            transit = Transit.objects.create(**validated_data)
+            
+            # Remove quantity from source location
+            source_inventory = InventoryByLocation.get_or_create_inventory(
+                transit.item, transit.from_location
+            )
+            source_inventory.remove_quantity(transit.quantity)
+            
+            # Log the action
+            from .utils import log_audit_action
+            log_audit_action(
+                'Transit Created', 
+                'Transit', 
+                f"Created transit for {transit.quantity} x {transit.item.name} from {transit.from_location.name} to {transit.to_location.name}"
+            )
+            
+            return transit
+
+class TransitSendSerializer(serializers.Serializer):
+    """Serializer for marking transit as delivered"""
+    received_by_user_id = serializers.IntegerField()
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+class ContractScheduleSerializer(serializers.ModelSerializer):
+    procurement = serializers.PrimaryKeyRelatedField(queryset=Procurement.objects.all())
+    uploaded_by = UserSerializer(read_only=True)
+    uploaded_by_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='uploaded_by', write_only=True)
+    
+    class Meta:
+        model = ContractSchedule
+        fields = [
+            'id', 'procurement', 'title', 'document', 'notes', 
+            'uploaded_at', 'uploaded_by', 'uploaded_by_id'
+        ]
+        read_only_fields = ['id', 'uploaded_at', 'uploaded_by']
+
+    def create(self, validated_data):
+        """Create contract schedule and log the action"""
+        contract_schedule = ContractSchedule.objects.create(**validated_data)
+        
+        # Log the action
+        from .utils import log_audit_action
+        log_audit_action(
+            'Contract Schedule Uploaded', 
+            'ContractSchedule', 
+            f"Uploaded contract schedule '{contract_schedule.title}' for procurement {contract_schedule.procurement.order_number}"
+        )
+        
+        return contract_schedule
+
+class AmendmentOrderSerializer(serializers.ModelSerializer):
+    contract_schedule = serializers.PrimaryKeyRelatedField(queryset=ContractSchedule.objects.all())
+    uploaded_by = UserSerializer(read_only=True)
+    uploaded_by_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='uploaded_by', write_only=True)
+    
+    class Meta:
+        model = AmendmentOrder
+        fields = [
+            'id', 'contract_schedule', 'title', 'document', 'reason', 'notes', 
+            'amendment_date', 'uploaded_at', 'uploaded_by', 'uploaded_by_id'
+        ]
+        read_only_fields = ['id', 'uploaded_at', 'uploaded_by']
+
+    def create(self, validated_data):
+        """Create amendment order and log the action"""
+        amendment_order = AmendmentOrder.objects.create(**validated_data)
+        
+        # Log the action
+        from .utils import log_audit_action
+        log_audit_action(
+            'Amendment Order Uploaded', 
+            'AmendmentOrder', 
+            f"Uploaded amendment order '{amendment_order.title}' for contract schedule '{amendment_order.contract_schedule.title}'"
+        )
+        
+        return amendment_order
+
+class DeliveredItemSerializer(serializers.ModelSerializer):
+    item = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all())
+    item_name = serializers.CharField(source='item.name', read_only=True)
+    
+    class Meta:
+        model = DeliveredItem
+        fields = ['id', 'item', 'item_name', 'lot_number', 'quantity']
+
+
+class DeliveryNoteSerializer(serializers.ModelSerializer):
+    uploaded_by = UserSerializer(read_only=True)
+    uploaded_by_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='uploaded_by', write_only=True)
+    delivered_items = DeliveredItemSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = DeliveryNote
+        fields = [
+            'id', 'order_type', 'order_id', 'delivery_type', 'delivery_date', 
+            'document', 'uploaded_by', 'uploaded_by_id', 'uploaded_at', 
+            'delivered_items', 'notes'
+        ]
+        read_only_fields = ['id', 'uploaded_at', 'uploaded_by', 'delivered_items']
+
+    def create(self, validated_data):
+        """Create delivery note and log the action"""
+        delivery_note = DeliveryNote.objects.create(**validated_data)
+        
+        # Log the action
+        from .utils import log_audit_action
+        log_audit_action(
+            'Delivery Note Uploaded', 
+            'DeliveryNote', 
+            f"Uploaded {delivery_note.get_delivery_type_display()} for {delivery_note.get_order_type_display()} #{delivery_note.order_id}"
+        )
+        
+        return delivery_note
+
+class ReceivedItemSerializer(serializers.ModelSerializer):
+    item = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all())
+    item_name = serializers.CharField(source='item.name', read_only=True)
+    
+    class Meta:
+        model = ReceivedItem
+        fields = ['id', 'item', 'item_name', 'lot_number', 'quantity']
+
+
+class ReceivingNoteSerializer(serializers.ModelSerializer):
+    delivery_note = serializers.PrimaryKeyRelatedField(queryset=DeliveryNote.objects.all())
+    received_by = UserSerializer(read_only=True)
+    received_by_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='received_by', write_only=True)
+    uploaded_by = UserSerializer(read_only=True)
+    uploaded_by_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='uploaded_by', write_only=True)
+    received_items = ReceivedItemSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = ReceivingNote
+        fields = [
+            'id', 'delivery_note', 'receiving_type', 'receiving_date', 
+            'received_by', 'received_by_id', 'uploaded_by', 'uploaded_by_id',
+            'uploaded_at', 'received_items', 'notes'
+        ]
+        read_only_fields = ['id', 'uploaded_at', 'received_by', 'uploaded_by', 'received_items']
+
+    def create(self, validated_data):
+        """Create receiving note and log the action"""
+        receiving_note = ReceivingNote.objects.create(**validated_data)
+        
+        # Log the action
+        from .utils import log_audit_action
+        log_audit_action(
+            'Receiving Note Created', 
+            'ReceivingNote', 
+            f"Created {receiving_note.get_receiving_type_display()} for Delivery Note #{receiving_note.delivery_note.id}"
+        )
+        
+        return receiving_note

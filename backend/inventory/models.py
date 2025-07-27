@@ -4,14 +4,48 @@ from django.utils import timezone
 from datetime import timedelta
 
 class User(models.Model):
+    ROLE_CHOICES = [
+        ('chairman', 'Chairman'),
+        ('main_inventory_manager', 'Main Inventory Manager'),
+        ('inventory_manager', 'Inventory Manager'),
+    ]
+    
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
-    role = models.CharField(max_length=20)
+    role = models.CharField(max_length=25, choices=ROLE_CHOICES)
     department = models.ForeignKey('Department', on_delete=models.CASCADE, related_name='users')
+    assigned_locations = models.ManyToManyField('Location', blank=True, related_name='assigned_users')
+    location = models.ForeignKey('Location', on_delete=models.SET_NULL, null=True, blank=True, related_name='users_at_location')
 
     def __str__(self):
         return self.name
     
+    def can_access_main_inventory(self):
+        """Check if user can access main inventory"""
+        return self.role in ['chairman', 'main_inventory_manager']
+    
+    def can_access_all_locations(self):
+        """Check if user can access all locations (chairman only)"""
+        return self.role == 'chairman'
+    
+    def get_accessible_locations(self):
+        """Get locations this user can access"""
+        if self.role == 'chairman':
+            return Location.objects.all()
+        elif self.role == 'main_inventory_manager':
+            return Location.objects.filter(name__icontains='main')
+        else:  # inventory_manager
+            return self.assigned_locations.all()
+    
+    def can_edit_location(self, location):
+        """Check if user can edit inventory at specific location"""
+        if self.role == 'chairman':
+            return True
+        elif self.role == 'main_inventory_manager':
+            return 'main' in location.name.lower()
+        else:  # inventory_manager
+            return location in self.assigned_locations.all()
+
 
 class Department(models.Model):
     name = models.CharField(max_length=100)
@@ -281,3 +315,157 @@ class DiscardRequest(models.Model):
 
     def __str__(self):
         return f"{self.quantity} x {self.item.name} requested for discard at {self.location.name} by {self.requested_by.name} ({self.status})"
+
+class Transit(models.Model):
+    STATUS_CHOICES = [
+        ('in_transit', 'In Transit'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='transits')
+    quantity = models.PositiveIntegerField()
+    from_location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='transits_from')
+    to_location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='transits_to')
+    sent_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transits_sent')
+    received_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='transits_received')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='in_transit')
+    sent_date = models.DateTimeField(auto_now_add=True)
+    received_date = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.item.name} - {self.quantity} from {self.from_location.name} to {self.to_location.name}"
+    
+    def mark_as_delivered(self, received_by_user, notes=""):
+        """Mark transit as delivered and create stock movement"""
+        from .models import StockMovement, InventoryByLocation
+        
+        self.status = 'delivered'
+        self.received_by = received_by_user
+        self.received_date = timezone.now()
+        self.notes = notes
+        self.save()
+        
+        # Create stock movement
+        stock_movement = StockMovement.objects.create(
+            item=self.item,
+            from_location=self.from_location,
+            to_location=self.to_location,
+            quantity=self.quantity,
+            received_by=received_by_user,
+            notes=f"Transit completed: {notes}" if notes else "Transit completed"
+        )
+        
+        # Update inventory
+        # Remove from source location
+        source_inventory = InventoryByLocation.get_or_create_inventory(self.item, self.from_location)
+        source_inventory.remove_quantity(self.quantity)
+        
+        # Add to destination location
+        dest_inventory = InventoryByLocation.get_or_create_inventory(self.item, self.to_location)
+        dest_inventory.add_quantity(self.quantity)
+        
+        return stock_movement
+
+class ContractSchedule(models.Model):
+    procurement = models.ForeignKey(Procurement, on_delete=models.CASCADE, related_name='contract_schedules')
+    title = models.CharField(max_length=255)
+    document = models.FileField(upload_to='contract_schedules/')
+    notes = models.TextField(blank=True, null=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='uploaded_contract_schedules')
+    
+    def __str__(self):
+        return f"{self.title} - {self.procurement.order_number}"
+    
+    class Meta:
+        ordering = ['-uploaded_at']
+
+class AmendmentOrder(models.Model):
+    contract_schedule = models.ForeignKey(ContractSchedule, on_delete=models.CASCADE, related_name='amendments')
+    title = models.CharField(max_length=255)
+    document = models.FileField(upload_to='amendments/')
+    reason = models.CharField(max_length=500)
+    notes = models.TextField(blank=True, null=True)
+    amendment_date = models.DateField()
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='uploaded_amendments')
+    
+    def __str__(self):
+        return f"{self.title} - {self.contract_schedule.title}"
+    
+    class Meta:
+        ordering = ['-amendment_date', '-uploaded_at']
+
+class DeliveredItem(models.Model):
+    delivery_note = models.ForeignKey('DeliveryNote', on_delete=models.CASCADE, related_name='delivered_items')
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='delivered_items')
+    lot_number = models.CharField(max_length=100)
+    quantity = models.PositiveIntegerField()
+    
+    def __str__(self):
+        return f"{self.item.name} - {self.lot_number} - {self.quantity} units"
+    
+    class Meta:
+        unique_together = ['delivery_note', 'item', 'lot_number']
+
+
+class DeliveryNote(models.Model):
+    ORDER_TYPE_CHOICES = [
+        ('procurement', 'Procurement'),
+        ('transfer', 'Transfer'),
+    ]
+    
+    DELIVERY_TYPE_CHOICES = [
+        ('full', 'Full Delivery'),
+        ('partial', 'Partial Delivery'),
+    ]
+    
+    order_type = models.CharField(max_length=20, choices=ORDER_TYPE_CHOICES)
+    order_id = models.PositiveIntegerField()  # ID of procurement or transfer order
+    delivery_type = models.CharField(max_length=20, choices=DELIVERY_TYPE_CHOICES)
+    delivery_date = models.DateField()
+    document = models.FileField(upload_to='delivery_notes/')
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='uploaded_delivery_notes')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.get_delivery_type_display()} - {self.get_order_type_display()} #{self.order_id}"
+    
+    class Meta:
+        ordering = ['-delivery_date', '-uploaded_at']
+
+class ReceivedItem(models.Model):
+    receiving_note = models.ForeignKey('ReceivingNote', on_delete=models.CASCADE, related_name='received_items')
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='received_items')
+    lot_number = models.CharField(max_length=100)
+    quantity = models.PositiveIntegerField()
+    
+    def __str__(self):
+        return f"{self.item.name} - {self.lot_number} - {self.quantity} units"
+    
+    class Meta:
+        unique_together = ['receiving_note', 'item', 'lot_number']
+
+
+class ReceivingNote(models.Model):
+    RECEIVING_TYPE_CHOICES = [
+        ('full', 'Full Receipt'),
+        ('partial', 'Partial Receipt'),
+    ]
+    
+    delivery_note = models.ForeignKey(DeliveryNote, on_delete=models.CASCADE, related_name='receiving_notes')
+    receiving_type = models.CharField(max_length=20, choices=RECEIVING_TYPE_CHOICES)
+    receiving_date = models.DateField()
+    received_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_items')
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='uploaded_receiving_notes')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.get_receiving_type_display()} - Delivery Note #{self.delivery_note.id}"
+    
+    class Meta:
+        ordering = ['-receiving_date', '-uploaded_at']

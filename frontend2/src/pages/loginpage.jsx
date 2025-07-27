@@ -131,7 +131,7 @@ import nedLogo from "/src/assets/ned.png";
 import '@fortawesome/fontawesome-free/css/all.min.css'; // Ensure Font Awesome is available
 
 const LoginPage = () => {
-  const [userType, setUserType] = useState('admin');
+  const [userType, setUserType] = useState('chairman');
   const [portalID, setPortalID] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -139,13 +139,17 @@ const LoginPage = () => {
   const navigate = useNavigate();
 
   const predefinedCreds = {
-    admin: {
-      username: 'admin',
-      password: 'admin123'
+    chairman: {
+      username: 'chairman',
+      password: 'chairman123'
     },
-    user: {
-      username: 'user',
-      password: 'user123'
+    main_inventory_manager: {
+      username: 'main_inventory_manager',
+      password: 'main123'
+    },
+    inventory_manager: {
+      username: 'inventory_manager',
+      password: 'inventory123'
     }
   };
 
@@ -162,7 +166,8 @@ const LoginPage = () => {
         body: JSON.stringify({
           portalID: portalID,
           password: password,
-          userType: userType === 'admin' ? 'Admin' : 'User'
+          userType: userType === 'chairman' ? 'Chairman' : 
+                   userType === 'main_inventory_manager' ? 'Main Inventory Manager' : 'Inventory Manager'
         }),
       });
 
@@ -172,25 +177,14 @@ const LoginPage = () => {
         sessionStorage.setItem('isLoggedIn', 'true');
         sessionStorage.setItem('userType', userType);
         sessionStorage.setItem('portalID', portalID);
-        // Fetch and store user location info for user role
-        if (userType === 'user') {
-          try {
-            const userDetails = await import('../services/api').then(m => m.usersAPI.getById(portalID));
-            if (userDetails && userDetails.location) {
-              sessionStorage.setItem('user_location_id', userDetails.location.id);
-              sessionStorage.setItem('user_location', userDetails.location.name);
-            }
-          } catch (e) {
-            // fallback: default to lab1/1
-            sessionStorage.setItem('user_location_id', '1');
-            sessionStorage.setItem('user_location', 'lab1');
-          }
-        }
+        
         // Navigate based on user type
-        if (userType === 'admin') {
-          navigate('/admin-dashboard');
+        if (userType === 'chairman') {
+          navigate('/chairman-dashboard');
+        } else if (userType === 'main_inventory_manager') {
+          navigate('/main-inventory-dashboard');
         } else {
-          navigate('/user-dashboard');
+          navigate('/inventory-manager-dashboard');
         }
       } else {
         setError(data.message || 'Invalid credentials');
@@ -221,23 +215,30 @@ const LoginPage = () => {
             {/* Tabs with Smooth Slide */}
             <div className="relative flex border-b mb-6">
               <button
-                className={`flex-1 py-2 font-medium text-center z-10 ${userType === 'admin' ? 'text-gray-800' : 'text-gray-500'}`}
-                onClick={() => setUserType('admin')}
+                className={`flex-1 py-2 font-medium text-center z-10 ${userType === 'chairman' ? 'text-gray-800' : 'text-gray-500'}`}
+                onClick={() => setUserType('chairman')}
               >
-                Admin
+                Chairman
               </button>
               <button
-                className={`flex-1 py-2 font-medium text-center z-10 ${userType === 'user' ? 'text-gray-800' : 'text-gray-500'}`}
-                onClick={() => setUserType('user')}
+                className={`flex-1 py-2 font-medium text-center z-10 ${userType === 'main_inventory_manager' ? 'text-gray-800' : 'text-gray-500'}`}
+                onClick={() => setUserType('main_inventory_manager')}
               >
-                User
+                Main Inventory Manager
               </button>
-              <span
-                className="absolute bottom-0 left-0 w-1/2 h-[2px] bg-gray-700 transition-transform duration-300 ease-in-out"
-                style={{
-                  transform: userType === 'admin' ? 'translateX(0%)' : 'translateX(100%)',
-                }}
-              />
+              <button
+                className={`flex-1 py-2 font-medium text-center z-10 ${userType === 'inventory_manager' ? 'text-gray-800' : 'text-gray-500'}`}
+                onClick={() => setUserType('inventory_manager')}
+              >
+                Inventory Manager
+              </button>
+                              <span
+                  className="absolute bottom-0 left-0 w-1/3 h-[2px] bg-gray-700 transition-transform duration-300 ease-in-out"
+                  style={{
+                    transform: userType === 'chairman' ? 'translateX(0%)' : 
+                               userType === 'main_inventory_manager' ? 'translateX(100%)' : 'translateX(200%)',
+                  }}
+                />
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">

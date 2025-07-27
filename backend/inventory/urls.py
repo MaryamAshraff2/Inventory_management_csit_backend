@@ -16,6 +16,15 @@ from .views.reports import ReportViewSet
 from .views.auditlogs import AuditLogListView, AuditLogActionsView, AuditLogEntitiesView, AuditLogUsersView, AuditLogExportPDFView, AuditLogExportExcelView
 from .views.user_views import user_dashboard_data, create_stock_request, user_stock_requests, user_inventory_view, user_location_inventory, available_items_for_request, user_profile_data
 from .views.discardrequest import user_discard_requests, admin_pending_discard_requests, admin_process_discard_request
+from .views.transit import TransitViewSet, transit_send_api
+from .views.contract_schedule import ContractScheduleViewSet, contract_schedule_upload_api, contract_schedule_delete_api
+from .views.amendment_order import AmendmentOrderViewSet, amendment_order_upload_api, amendment_order_delete_api
+from .views.delivery_note import DeliveryNoteViewSet, delivery_note_upload_api, delivery_note_delete_api
+from .views.receiving_note import ReceivingNoteViewSet, receiving_note_create_api, receiving_note_delete_api
+from .views.stock_in_hand import stock_in_hand_api, stock_in_hand_summary_api
+from .views.inventory_transactions import inventory_transactions_api, inventory_transactions_summary_api, inventory_transactions_export_api
+from .views.low_stock import low_stock_api, low_stock_summary_api, low_stock_export_api, low_stock_by_category_api
+from .views.out_of_stock import out_of_stock_api, out_of_stock_summary_api, out_of_stock_export_api, out_of_stock_by_category_api, out_of_stock_by_store_api
 
 
 # Router for ViewSets
@@ -30,6 +39,11 @@ router.register(r'stockmovements', StockMovementViewSet)
 router.register(r'sendingstockrequests', SendingStockRequestViewSet)
 router.register(r'discardeditems', DiscardedItemViewSet)
 router.register(r'reports', ReportViewSet)
+router.register(r'transits', TransitViewSet)
+router.register(r'contract-schedules', ContractScheduleViewSet)
+router.register(r'amendment-orders', AmendmentOrderViewSet)
+router.register(r'delivery-notes', DeliveryNoteViewSet)
+router.register(r'receiving-notes', ReceivingNoteViewSet)
 
 urlpatterns = [
     path('login/', login_api, name='login'),
@@ -54,6 +68,47 @@ urlpatterns = [
     path('user/discard-requests/', user_discard_requests, name='user-discard-requests'),
     path('admin/discard-requests/pending/', admin_pending_discard_requests, name='admin-pending-discard-requests'),
     path('admin/discard-requests/<int:pk>/process/', admin_process_discard_request, name='admin-process-discard-request'),
+    
+    # Transit endpoints
+    path('api/transit/send/', transit_send_api, name='transit-send'),
+    
+    # Contract Schedule endpoints
+    path('api/contract-schedule/', contract_schedule_upload_api, name='contract-schedule-upload'),
+    path('api/contract-schedule/<int:schedule_id>/', contract_schedule_delete_api, name='contract-schedule-delete'),
+    
+    # Amendment Order endpoints
+    path('api/contract-schedule/<int:contract_schedule_id>/amendment/', amendment_order_upload_api, name='amendment-order-upload'),
+    path('api/contract-schedule/amendment/', amendment_order_delete_api, name='amendment-order-delete'),
+    
+    # Delivery Note endpoints
+    path('api/delivery-note/', delivery_note_upload_api, name='delivery-note-upload'),
+    path('api/delivery-note/<int:delivery_note_id>/', delivery_note_delete_api, name='delivery-note-delete'),
+    
+    # Receiving Note endpoints
+    path('api/receiving-note/', receiving_note_create_api, name='receiving-note-create'),
+    path('api/receiving-note/<int:receiving_note_id>/', receiving_note_delete_api, name='receiving-note-delete'),
+    
+    # Stock in Hand endpoints
+    path('api/stock-in-hand/', stock_in_hand_api, name='stock-in-hand'),
+    path('api/stock-in-hand/summary/', stock_in_hand_summary_api, name='stock-in-hand-summary'),
+    
+    # Inventory Transactions endpoints
+    path('api/inventory-transactions/', inventory_transactions_api, name='inventory-transactions'),
+    path('api/inventory-transactions/summary/', inventory_transactions_summary_api, name='inventory-transactions-summary'),
+    path('api/inventory-transactions/export/', inventory_transactions_export_api, name='inventory-transactions-export'),
+    
+    # Low Stock endpoints
+    path('api/low-stock/', low_stock_api, name='low-stock'),
+    path('api/low-stock/summary/', low_stock_summary_api, name='low-stock-summary'),
+    path('api/low-stock/export/', low_stock_export_api, name='low-stock-export'),
+    path('api/low-stock/by-category/', low_stock_by_category_api, name='low-stock-by-category'),
+    
+    # Out of Stock endpoints
+    path('api/out-of-stock/', out_of_stock_api, name='out-of-stock'),
+    path('api/out-of-stock/summary/', out_of_stock_summary_api, name='out-of-stock-summary'),
+    path('api/out-of-stock/export/', out_of_stock_export_api, name='out-of-stock-export'),
+    path('api/out-of-stock/by-category/', out_of_stock_by_category_api, name='out-of-stock-by-category'),
+    path('api/out-of-stock/by-store/', out_of_stock_by_store_api, name='out-of-stock-by-store'),
 ]
 
 

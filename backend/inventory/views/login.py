@@ -25,8 +25,9 @@ def login_api(request):
             user_type = data.get("userType")
 
             credentials = {
-                "Admin": {"id": "admin", "password": "admin123"},
-                "User": {"id": "user", "password": "user123"},
+                "Chairman": {"id": "chairman", "password": "chairman123"},
+                "Main Inventory Manager": {"id": "main_inventory_manager", "password": "main123"},
+                "Inventory Manager": {"id": "inventory_manager", "password": "inventory123"},
             }
 
             if user_type in credentials:

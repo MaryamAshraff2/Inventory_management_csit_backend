@@ -87,7 +87,14 @@ const Dashboard = () => {
           <div className="bg-white rounded-lg shadow p-6">
             {/* Dynamic greeting based on user type */}
             <h1 className="text-3xl font-bold text-gray-800 mb-6">
-              Hello {sessionStorage.getItem('userType') === 'admin' ? 'Admin' : 'User'}
+              Hello {(() => {
+                const userType = sessionStorage.getItem('userType');
+                if (userType === 'chairman') return 'Chairman';
+                if (userType === 'main_inventory_manager') return 'Main Inventory Manager';
+                if (userType === 'inventory_manager') return 'Inventory Manager';
+                if (userType === 'admin') return 'Admin';
+                return 'User';
+              })()}
             </h1>
             
             {loading ? (

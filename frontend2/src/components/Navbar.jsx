@@ -8,6 +8,9 @@ const Navbar = ({ title, onLogout }) => {
 
   // Helper to get initials for avatar
   const getInitials = () => {
+    if (userType === 'chairman') return 'CH';
+    if (userType === 'main_inventory_manager') return 'MI';
+    if (userType === 'inventory_manager') return 'IM';
     if (userType === 'admin') return 'AD';
     return 'US';
   };
@@ -51,7 +54,13 @@ const Navbar = ({ title, onLogout }) => {
               <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
                 <span>{getInitials()}</span>
               </div>
-              <span className="text-sm font-medium">{userType === 'admin' ? 'Admin' : 'User'}</span>
+              <span className="text-sm font-medium">{(() => {
+                if (userType === 'chairman') return 'Chairman';
+                if (userType === 'main_inventory_manager') return 'Main Inventory Manager';
+                if (userType === 'inventory_manager') return 'Inventory Manager';
+                if (userType === 'admin') return 'Admin';
+                return 'User';
+              })()}</span>
             </div>
             
             {/* Dropdown Menu */}
