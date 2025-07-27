@@ -17,6 +17,7 @@ const Users = () => {
   const [filterCategory, setFilterCategory] = useState('name');
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const userType = sessionStorage.getItem('userType'); // 'chairman', 'main_inventory_manager', 'inventory_manager'
 
   // Fetch users from backend
   const fetchUsers = () => {
@@ -243,7 +244,7 @@ const Users = () => {
               <AddUserForm
                 user={editingUser}
                 departments={departments}
-                roles={roles}
+                role={editingUser ? editingUser.role : userType}
                 onClose={() => {
                   setShowForm(false);
                   setEditingUser(null);

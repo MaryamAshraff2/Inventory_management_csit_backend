@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { FiX } from 'react-icons/fi';
 
-const AddUserForm = ({ user, onClose, onSubmit, departments = [] }) => {
+const AddUserForm = ({ user, onClose, onSubmit, departments = [], role }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    role: 'User',
+    role: role || 'User',
     department: ''
   });
 
@@ -24,8 +24,10 @@ const AddUserForm = ({ user, onClose, onSubmit, departments = [] }) => {
         role: user.role,
         department: user.department?.id || user.department
       });
+    } else if (role) {
+      setFormData(prev => ({ ...prev, role }));
     }
-  }, [user]);
+  }, [user, role]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -93,16 +95,27 @@ const AddUserForm = ({ user, onClose, onSubmit, departments = [] }) => {
               <label htmlFor="role" className="block text-sm font-medium text-gray-700">
                 Role
               </label>
-              <select
-                name="role"
-                id="role"
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                value={formData.role}
-                onChange={handleChange}
-              >
-                <option value="User">User</option>
-                <option value="Admin">Admin</option>
-              </select>
+              {role ? (
+                <input
+                  type="text"
+                  name="role"
+                  id="role"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-100 text-gray-700 sm:text-sm"
+                  value={formData.role}
+                  readOnly
+                />
+              ) : (
+                <select
+                  name="role"
+                  id="role"
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  value={formData.role}
+                  onChange={handleChange}
+                >
+                  <option value="User">User</option>
+                  <option value="Admin">Admin</option>
+                </select>
+              )}
             </div>
 
             <div>
