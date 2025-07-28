@@ -1,42 +1,60 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
-
-
-USERNAME = "admin"
-PASSWORD = "12345"
-
-# @csrf_exempt
-# def login_user(request):
-#     if request.method == "POST":
-#         data = json.loads(request.body)
-#         if data.get("username") == USERNAME and data.get("password") == PASSWORD:
-#             return JsonResponse({"success": True})
-#         return JsonResponse({"success": False}, status=401)
-
+from ..models import User
+from django.views.decorators.csrf import csrf_exempt
 
 @csrf_exempt
 def login_api(request):
     if request.method == "POST":
         try:
             data = json.loads(request.body)
-            portal_id = data.get("portalID")
+            username = data.get("username")
             password = data.get("password")
-            user_type = data.get("userType")
 
-            credentials = {
-                "Chairman": {"id": "chairman", "password": "chairman123"},
-                "Main Inventory Manager": {"id": "main_inventory_manager", "password": "main123"},
-                "Inventory Manager": {"id": "inventory_manager", "password": "inventory123"},
-            }
+            if not username:
+                return JsonResponse({"success": False, "message": "Username required."}, status=400)
 
-            if user_type in credentials:
-                if portal_id == credentials[user_type]["id"] and password == credentials[user_type]["password"]:
-                    return JsonResponse({"success": True})
-                else:
-                    return JsonResponse({"success": False, "message": "Invalid credentials"}, status=401)
-            else:
-                return JsonResponse({"success": False, "message": "Invalid user type"}, status=400)
+            try:
+                # Use 'name' field for authentication since that's what exists in the database
+                user = User.objects.get(name=username)
+            except User.DoesNotExist:
+                return JsonResponse({"success": False, "message": "Invalid username or password."}, status=401)
 
+            # Check password for non-superusers
+            if user.role != 'superuser':
+                if not password:
+                    return JsonResponse({"success": False, "message": "Password required for this user."}, status=400)
+                if not user.password or user.password != password:
+                    return JsonResponse({"success": False, "message": "Invalid username or password."}, status=401)
+
+            # Only superuser can login initially
+            if user.role == 'superuser':
+                # Superuser can always login
+                pass
+            elif user.role == 'chairman':
+                # Chairman can only login if assigned to a department
+                if not user.department:
+                    return JsonResponse({"success": False, "message": "Chairman account not yet assigned by superuser."}, status=403)
+            elif user.role == 'main_inventory_manager':
+                # Main inventory manager can only login if assigned to a department
+                if not user.department:
+                    return JsonResponse({"success": False, "message": "Main inventory manager account not yet assigned by superuser."}, status=403)
+            elif user.role == 'inventory_manager':
+                # Inventory manager can only login if assigned to a location
+                if not user.assigned_locations.exists():
+                    return JsonResponse({"success": False, "message": "Inventory manager account not yet assigned to a location."}, status=403)
+
+            # Success: return user info and role
+            return JsonResponse({
+                "success": True,
+                "user": {
+                    "id": user.id,
+                    "username": user.name,  # Use name as username for frontend compatibility
+                    "name": user.name,
+                    "role": user.role,
+                    "department": user.department.name if user.department else None,
+                }
+            })
         except Exception as e:
             return JsonResponse({"success": False, "message": str(e)}, status=500)

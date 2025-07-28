@@ -1,5 +1,5 @@
 from rest_framework import viewsets
-from ..models import Department, Location
+from ..models import Department, Location, User
 from ..serializers import DepartmentSerializer, LocationSerializer
 from ..utils import log_audit_action
 
@@ -19,9 +19,37 @@ class DepartmentViewSet(viewsets.ModelViewSet):
         data['user_count'] = 0
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
+        department = serializer.save()
+        
+        # Auto-create chairman and main inventory manager for this department
+        department_name = department.name
+        
+        # Create chairman user
+        chairman_name = f"chairman_{department_name.lower().replace(' ', '_')}"
+        chairman_user = User.objects.create(
+            name=chairman_name,
+            password="chairman123",  # Default password
+            email=f"chairman.{department_name.lower().replace(' ', '_')}@neduet.edu.pk",
+            role="chairman",
+            department=department
+        )
+        
+        # Create main inventory manager user
+        main_manager_name = f"main_manager_{department_name.lower().replace(' ', '_')}"
+        main_manager_user = User.objects.create(
+            name=main_manager_name,
+            password="main123",  # Default password
+            email=f"main_manager.{department_name.lower().replace(' ', '_')}@neduet.edu.pk",
+            role="main_inventory_manager",
+            department=department
+        )
+        
+        # Update department user count
+        department.user_count = 2  # chairman + main inventory manager
+        department.save()
+        
         headers = self.get_success_headers(serializer.data)
-        log_audit_action('Department Created', 'Department', f"Created department '{serializer.data.get('name')}'")
+        log_audit_action('Department Created', 'Department', f"Created department '{department_name}' with auto-created chairman and main inventory manager")
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def update(self, request, *args, **kwargs):

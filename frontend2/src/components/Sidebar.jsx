@@ -22,6 +22,8 @@ const Sidebar = () => {
         return userType === 'chairman' || userType === 'inventory_manager';
       case 'management':
         return userType === 'chairman' || userType === 'main_inventory_manager';
+      case 'superuser':
+        return userType === 'superuser';
       default:
         return false;
     }
@@ -78,6 +80,29 @@ const Sidebar = () => {
                   Departments
                 </Link>
               </li>
+            </>
+          )}
+
+          {/* Superuser-only features */}
+          {canAccess('superuser') && (
+            <>
+              <li>
+                <Link 
+                  to="/superuser-departments" 
+                  className={`flex items-center p-2 rounded hover:bg-gray-700 ${
+                    isActive('/superuser-departments') ? 'bg-gray-700' : ''
+                  }`}
+                >
+                  <FaBuilding className="mr-3" />
+                  Manage Departments & Chairmen
+                </Link>
+              </li>
+            </>
+          )}
+
+          {/* Management features - Chairman and Main Inventory Manager */}
+          {canAccess('management') && (
+            <>
               <li>
                 <Link 
                   to="/locations" 

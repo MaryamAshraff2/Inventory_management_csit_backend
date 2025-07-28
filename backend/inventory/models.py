@@ -5,20 +5,22 @@ from datetime import timedelta
 
 class User(models.Model):
     ROLE_CHOICES = [
+        ('superuser', 'Superuser'),
         ('chairman', 'Chairman'),
         ('main_inventory_manager', 'Main Inventory Manager'),
         ('inventory_manager', 'Inventory Manager'),
     ]
     
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
+    password = models.CharField(max_length=128, null=True, blank=True)  # Optional password for non-superusers
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=25, choices=ROLE_CHOICES)
-    department = models.ForeignKey('Department', on_delete=models.CASCADE, related_name='users')
+    department = models.ForeignKey('Department', on_delete=models.CASCADE, related_name='users', null=True, blank=True)
     assigned_locations = models.ManyToManyField('Location', blank=True, related_name='assigned_users')
     location = models.ForeignKey('Location', on_delete=models.SET_NULL, null=True, blank=True, related_name='users_at_location')
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.role})"
     
     def can_access_main_inventory(self):
         """Check if user can access main inventory"""

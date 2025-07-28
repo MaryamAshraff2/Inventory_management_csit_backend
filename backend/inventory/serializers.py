@@ -29,7 +29,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source='department.name', read_only=True)
     department = serializers.PrimaryKeyRelatedField(
-        queryset=Department.objects.all(), write_only=False
+        queryset=Department.objects.all(), write_only=False, required=False, allow_null=True
     )
     location = serializers.PrimaryKeyRelatedField(
         queryset=Location.objects.all(), required=False, allow_null=True
@@ -37,7 +37,10 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'name', 'email', 'role', 'department', 'department_name', 'location']
+        fields = ['id', 'name', 'email', 'password', 'role', 'department', 'department_name', 'location']
+        extra_kwargs = {
+            'password': {'write_only': True, 'required': False}
+        }
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:

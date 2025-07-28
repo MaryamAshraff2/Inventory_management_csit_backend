@@ -11,6 +11,7 @@ import InventoryManagerDashboard from "./pages/InventoryManagerDashboard";
 import UserDashboard from "./pages/UserDashboard"; // user-specific dashboard
 import UserStockRequests from "./pages/UserStockRequests";
 import Departments from "./pages/Departments";
+import SuperuserDepartments from "./pages/SuperuserDepartments";
 import Users from "./pages/Users";
 import Categories from "./pages/categories";
 import Items from "./pages/Items";
@@ -174,6 +175,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Departments />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superuser-departments"
+            element={
+              <ProtectedRoute>
+                <SuperuserDepartments />
               </ProtectedRoute>
             }
           />

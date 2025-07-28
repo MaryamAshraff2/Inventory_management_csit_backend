@@ -13,7 +13,7 @@
 #     serializer_class = LocationSerializer
 
 from rest_framework import viewsets, generics
-from ..models import Location, TotalInventory
+from ..models import Location, TotalInventory, User
 from ..serializers import LocationSerializer
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -26,7 +26,26 @@ class LocationViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         response = super().create(request, *args, **kwargs)
-        log_audit_action('Location Created', 'Location', f"Created location '{response.data.get('name')}'")
+        location = self.get_object()
+        
+        # Auto-create inventory manager for this location
+        location_name = location.name
+        
+        # Create inventory manager user
+        inventory_manager_username = f"inventory_manager_{location_name.lower().replace(' ', '_')}"
+        inventory_manager_user = User.objects.create(
+            username=inventory_manager_username,
+            password="inventory123",  # Default password
+            name=f"Inventory Manager - {location_name}",
+            email=f"inventory_manager.{location_name.lower().replace(' ', '_')}@neduet.edu.pk",
+            role="inventory_manager",
+            location=location
+        )
+        
+        # Assign the location to the inventory manager
+        inventory_manager_user.assigned_locations.add(location)
+        
+        log_audit_action('Location Created', 'Location', f"Created location '{location_name}' with auto-created inventory manager")
         return response
 
     def update(self, request, *args, **kwargs):

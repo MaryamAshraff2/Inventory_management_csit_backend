@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 from .views.usermanagement import UserViewSet
 from .views.login import login_api
 from .views.departments import DepartmentViewSet
+from .views.superuser_management import SuperuserManagementViewSet
 from .views.categories import CategoryViewSet
 from .views.items import ItemViewSet, get_item_availability
 from .views.procurements import ProcurementViewSet
@@ -31,6 +32,7 @@ from .views.out_of_stock import out_of_stock_api, out_of_stock_summary_api, out_
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
 router.register(r'departments', DepartmentViewSet)
+router.register(r'superuser-management', SuperuserManagementViewSet, basename='superuser-management')
 router.register(r'locations', LocationViewSet)
 router.register(r'categories', CategoryViewSet)
 router.register(r'items', ItemViewSet)
