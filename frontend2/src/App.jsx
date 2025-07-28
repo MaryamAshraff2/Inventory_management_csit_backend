@@ -67,7 +67,9 @@ function App() {
               <ProtectedRoute>
                 <Navigate
                   to={
-                    sessionStorage.getItem("userType") === "chairman"
+                    sessionStorage.getItem("userType") === "superuser"
+                      ? "/superuser-dashboard"
+                      : sessionStorage.getItem("userType") === "chairman"
                       ? "/chairman-dashboard"
                       : sessionStorage.getItem("userType") === "main_inventory_manager"
                       ? "/main-inventory-dashboard"
@@ -76,6 +78,16 @@ function App() {
                       : "/admin-dashboard"
                   }
                 />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Superuser Dashboard Route */}
+          <Route
+            path="/superuser-dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
               </ProtectedRoute>
             }
           />
@@ -127,7 +139,9 @@ function App() {
               <ProtectedRoute>
                 <Navigate
                   to={
-                    sessionStorage.getItem("userType") === "chairman"
+                    sessionStorage.getItem("userType") === "superuser"
+                      ? "/superuser-dashboard"
+                      : sessionStorage.getItem("userType") === "chairman"
                       ? "/chairman-dashboard"
                       : sessionStorage.getItem("userType") === "main_inventory_manager"
                       ? "/main-inventory-dashboard"

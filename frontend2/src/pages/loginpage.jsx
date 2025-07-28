@@ -5,16 +5,23 @@ import '@fortawesome/fontawesome-free/css/all.min.css'; // Ensure Font Awesome i
 
 const LoginPage = () => {
   const [userType, setUserType] = useState('superuser');
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState('superuser');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  // Only superuser has template credentials
-  const superuserCreds = {
-    username: 'superuser',
-    password: 'superuser123'
+
+
+  const handleUserTypeChange = (newUserType) => {
+    setUserType(newUserType);
+    if (newUserType === 'superuser') {
+      setUsername('superuser');
+      setPassword('');
+    } else {
+      setUsername('');
+      setPassword('');
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -29,7 +36,7 @@ const LoginPage = () => {
         },
         body: JSON.stringify({
           username: username,
-          password: password
+          password: userType === 'superuser' ? '' : password
         }),
       });
 
@@ -90,25 +97,25 @@ const LoginPage = () => {
             <div className="relative flex border-b mb-6">
               <button
                 className={`flex-1 py-2 font-medium text-center z-10 text-xs ${userType === 'superuser' ? 'text-gray-800' : 'text-gray-500'}`}
-                onClick={() => setUserType('superuser')}
+                onClick={() => handleUserTypeChange('superuser')}
               >
                 Superuser
               </button>
               <button
                 className={`flex-1 py-2 font-medium text-center z-10 text-xs ${userType === 'chairman' ? 'text-gray-800' : 'text-gray-500'}`}
-                onClick={() => setUserType('chairman')}
+                onClick={() => handleUserTypeChange('chairman')}
               >
                 Chairman
               </button>
               <button
                 className={`flex-1 py-2 font-medium text-center z-10 text-xs ${userType === 'main_inventory_manager' ? 'text-gray-800' : 'text-gray-500'}`}
-                onClick={() => setUserType('main_inventory_manager')}
+                onClick={() => handleUserTypeChange('main_inventory_manager')}
               >
                 Main Inventory Manager
               </button>
               <button
                 className={`flex-1 py-2 font-medium text-center z-10 text-xs ${userType === 'inventory_manager' ? 'text-gray-800' : 'text-gray-500'}`}
-                onClick={() => setUserType('inventory_manager')}
+                onClick={() => handleUserTypeChange('inventory_manager')}
               >
                 Inventory Manager
               </button>
@@ -133,7 +140,7 @@ const LoginPage = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-700"
                 />
                 {userType === 'superuser' && (
-                  <p className="text-xs text-gray-500 mt-1">Use "{superuserCreds.username}" for superuser</p>
+                  <p className="text-xs text-gray-500 mt-1">Use "superuser" for superuser</p>
                 )}
               </div>
 
@@ -156,7 +163,7 @@ const LoginPage = () => {
                   </button>
                 </div>
                 {userType === 'superuser' && (
-                  <p className="text-xs text-gray-500 mt-1">Password is case sensitive — Use "{superuserCreds.password}" for superuser</p>
+                  <p className="text-xs text-gray-500 mt-1">No password required for superuser</p>
                 )}
               </div>
 

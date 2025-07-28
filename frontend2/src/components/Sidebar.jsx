@@ -34,6 +34,7 @@ const Sidebar = () => {
       <div className="p-4 border-b border-gray-700">
         <h1 className="text-xl font-bold">NED UET Inventory</h1>
         <p className="text-sm text-gray-400 mt-1">
+          {userType === 'superuser' && 'Superuser'}
           {userType === 'chairman' && 'Chairman'}
           {userType === 'main_inventory_manager' && 'Main Inventory Manager'}
           {userType === 'inventory_manager' && 'Inventory Manager'}
