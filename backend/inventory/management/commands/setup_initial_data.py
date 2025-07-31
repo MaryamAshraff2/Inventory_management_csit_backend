@@ -9,8 +9,7 @@ class Command(BaseCommand):
         main_dept, created = Department.objects.get_or_create(
             name='Main Department',
             defaults={
-                'email': 'main@neduet.edu.pk',
-                'user_count': 0
+                'email': 'main@neduet.edu.pk'
             }
         )
         

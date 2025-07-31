@@ -21,14 +21,18 @@ def login_api(request):
             except User.DoesNotExist:
                 return JsonResponse({"success": False, "message": "Invalid username or password."}, status=401)
 
-            # Check password for non-superusers
-            if user.role != 'superuser':
+            # Check password based on user role
+            if user.role == 'superuser':
+                # Superuser can login without password
+                pass
+            else:
+                # All other users require password
                 if not password:
-                    return JsonResponse({"success": False, "message": "Password required for this user."}, status=400)
+                    return JsonResponse({"success": False, "message": "Password required."}, status=400)
                 if not user.password or user.password != password:
                     return JsonResponse({"success": False, "message": "Invalid username or password."}, status=401)
 
-            # Only superuser can login initially
+            # Role-based access checks
             if user.role == 'superuser':
                 # Superuser can always login
                 pass

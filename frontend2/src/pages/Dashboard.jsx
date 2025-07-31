@@ -89,6 +89,7 @@ const Dashboard = () => {
             <h1 className="text-3xl font-bold text-gray-800 mb-6">
               Hello {(() => {
                 const userType = sessionStorage.getItem('userType');
+                if (userType === 'superuser') return 'Superuser';
                 if (userType === 'chairman') return 'Chairman';
                 if (userType === 'main_inventory_manager') return 'Main Inventory Manager';
                 if (userType === 'inventory_manager') return 'Inventory Manager';

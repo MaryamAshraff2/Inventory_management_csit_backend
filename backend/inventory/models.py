@@ -50,11 +50,66 @@ class User(models.Model):
 
 
 class Department(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100)  # Removed unique=True
     email = models.EmailField()
-    user_count = models.IntegerField(default=0)
+    is_deleted = models.BooleanField(default=False)  # Add soft deletion field
+    deleted_at = models.DateTimeField(null=True, blank=True)  # Track when deleted
+    
     def __str__(self):
         return self.name
+    
+    def save(self, *args, **kwargs):
+        """Override save to ensure name uniqueness only among active departments"""
+        # Only check for uniqueness if this is a new department (no ID yet) or if we're not marking it as deleted
+        if not self.is_deleted:
+            # Check if there's already an active department with this name
+            existing_active = Department.objects.filter(
+                name=self.name, 
+                is_deleted=False
+            ).exclude(id=self.id).first()
+            
+            if existing_active:
+                raise ValueError(f'Department with name "{self.name}" already exists.')
+        
+        super().save(*args, **kwargs)
+    
+    def delete(self, *args, **kwargs):
+        """Override delete to perform soft deletion and clean up related data"""
+        from django.utils import timezone
+        
+        # Mark as deleted
+        self.is_deleted = True
+        self.deleted_at = timezone.now()
+        self.save()
+        
+        # Delete all users associated with this department (hard delete)
+        users_to_delete = User.objects.filter(department=self)
+        for user in users_to_delete:
+            user.delete()
+        
+        # Delete all locations associated with this department (hard delete)
+        locations_to_delete = Location.objects.filter(department=self)
+        for location in locations_to_delete:
+            location.delete()
+        
+        # Log the deletion
+        from .utils import log_audit_action
+        log_audit_action('Department Deleted', 'Department', f"Deleted department '{self.name}' and all associated data")
+    
+    @classmethod
+    def get_active_departments(cls):
+        """Get only non-deleted departments"""
+        return cls.objects.filter(is_deleted=False)
+    
+    @classmethod
+    def is_name_available(cls, name):
+        """Check if a department name is available for use (no active department with this name)"""
+        return not cls.get_active_departments().filter(name=name).exists()
+    
+    @classmethod
+    def get_deleted_department_by_name(cls, name):
+        """Get a deleted department by name if it exists"""
+        return cls.objects.filter(name=name, is_deleted=True).first()
     
 
 class Category(models.Model):

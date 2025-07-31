@@ -8,6 +8,7 @@ const Navbar = ({ title, onLogout }) => {
 
   // Helper to get initials for avatar
   const getInitials = () => {
+    if (userType === 'superuser') return 'SU';
     if (userType === 'chairman') return 'CH';
     if (userType === 'main_inventory_manager') return 'MI';
     if (userType === 'inventory_manager') return 'IM';
@@ -55,6 +56,7 @@ const Navbar = ({ title, onLogout }) => {
                 <span>{getInitials()}</span>
               </div>
               <span className="text-sm font-medium">{(() => {
+                if (userType === 'superuser') return 'Superuser';
                 if (userType === 'chairman') return 'Chairman';
                 if (userType === 'main_inventory_manager') return 'Main Inventory Manager';
                 if (userType === 'inventory_manager') return 'Inventory Manager';
