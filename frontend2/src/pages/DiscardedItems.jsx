@@ -46,6 +46,7 @@ const DiscardedItems = () => {
       setDiscardedItems(data);
       setError(null);
     } catch (err) {
+      console.error('Error fetching discarded items:', err);
       setError('Failed to fetch discarded items');
       setDiscardedItems([]);
     } finally {
@@ -139,8 +140,21 @@ const DiscardedItems = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {paginatedItems.length === 0 ? (
                         <tr>
-                          <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
-                            No discarded items found
+                          <td colSpan="8" className="px-6 py-12 text-center">
+                            <div className="text-gray-400 mb-4">
+                              <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">No Discarded Items Found</h3>
+                            <p className="text-gray-500 mb-4">
+                              No items have been discarded yet. This is a good sign that your inventory is being managed well!
+                            </p>
+                            <div className="text-sm text-gray-400">
+                              <p>• Discarded items will appear here when items are marked as damaged, obsolete, or expired</p>
+                              <p>• Use the "Add Discarded Item" button to manually record discards</p>
+                              <p>• This helps track inventory losses and maintain accurate records</p>
+                            </div>
                           </td>
                         </tr>
                       ) : (

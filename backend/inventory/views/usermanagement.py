@@ -11,14 +11,6 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         response = super().create(request, *args, **kwargs)
-        department_id = response.data.get('department')
-        if department_id:
-            try:
-                department = Department.objects.get(id=department_id)
-                department.user_count = department.user_count + 1
-                department.save()
-            except Department.DoesNotExist:
-                pass
         # Audit log
         log_audit_action('User Created', 'User', f"Created new user '{response.data.get('name')}'")
         return response

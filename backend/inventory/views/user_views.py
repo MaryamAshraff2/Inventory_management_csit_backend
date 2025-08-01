@@ -411,3 +411,39 @@ def user_profile_data(request):
         return JsonResponse(profile_data)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500) 
+
+@api_view(['POST'])
+def get_user_counts(request):
+    """
+    Get user counts based on the logged-in user's role
+    """
+    try:
+        data = json.loads(request.body)
+        user_role = data.get('user_role')
+        
+        if not user_role:
+            return Response({'error': 'User role is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get user counts based on role
+        if user_role == 'superuser':
+            # Superuser sees only superusers (should be 1)
+            user_count = User.objects.filter(role='superuser').count()
+        elif user_role == 'chairman':
+            # Chairman sees only chairmen from active departments
+            user_count = User.objects.filter(role='chairman', department__is_deleted=False).count()
+        elif user_role == 'main_inventory_manager':
+            # Main inventory manager sees only main inventory managers from active departments
+            user_count = User.objects.filter(role='main_inventory_manager', department__is_deleted=False).count()
+        elif user_role == 'inventory_manager':
+            # Inventory manager sees only inventory managers
+            user_count = User.objects.filter(role='inventory_manager').count()
+        else:
+            return Response({'error': 'Invalid user role'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response({
+            'user_count': user_count,
+            'user_role': user_role
+        })
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 

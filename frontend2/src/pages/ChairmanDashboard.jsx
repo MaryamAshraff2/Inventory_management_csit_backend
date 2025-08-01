@@ -129,7 +129,7 @@ const ChairmanDashboard = () => {
                         </svg>
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-green-600">Total Users</p>
+                        <p className="text-sm font-medium text-green-600">Chairmen</p>
                         <p className="text-2xl font-bold text-green-900">{stats.totalUsers}</p>
                       </div>
                     </div>

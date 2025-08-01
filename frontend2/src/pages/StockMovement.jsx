@@ -45,6 +45,7 @@ const StockMovement = () => {
       const response = await axios.get('http://localhost:8000/inventory/stockmovements/');
       setMovements(response.data);
     } catch (error) {
+      console.error('Error fetching movements:', error);
       setMovements([]);
     } finally {
       setLoading(false);
@@ -177,7 +178,22 @@ const StockMovement = () => {
                     </tr>
                   ) : paginatedMovements.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-8 text-gray-500">No stock movements found.</td>
+                      <td colSpan={6} className="text-center py-12">
+                        <div className="text-gray-400 mb-4">
+                          <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Stock Movements Found</h3>
+                        <p className="text-gray-500 mb-4">
+                          No stock movements have been recorded yet. This could be because no items have been moved between locations.
+                        </p>
+                        <div className="text-sm text-gray-400">
+                          <p>• Add new stock movements using the "Add New Movement" button</p>
+                          <p>• Check if items exist in the system</p>
+                          <p>• Verify that locations are properly configured</p>
+                        </div>
+                      </td>
                     </tr>
                   ) : (
                     paginatedMovements.map((movement) => (

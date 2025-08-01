@@ -22,9 +22,15 @@ class LocationSerializer(serializers.ModelSerializer):
 
 class DepartmentSerializer(serializers.ModelSerializer):
     locations = LocationSerializer(many=True, read_only=True)
+    user_count = serializers.SerializerMethodField()
+    
     class Meta:
         model = Department
         fields = ['id', 'name', 'email', 'user_count', 'locations']
+    
+    def get_user_count(self, obj):
+        """Get the count of users in this department"""
+        return obj.users.count()
 
 class UserSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source='department.name', read_only=True)

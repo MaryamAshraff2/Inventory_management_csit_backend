@@ -35,16 +35,38 @@ export const dashboardAPI = {
   // Get dashboard statistics
   getStats: async () => {
     try {
-      const [departments, users, items, requests] = await Promise.all([
-        apiRequest('/departments/'),
-        apiRequest('/users/'),
+      const userType = sessionStorage.getItem('userType');
+      const [departments, items, requests] = await Promise.all([
+        apiRequest('/superuser-management/departments_with_chairmen/'),
         apiRequest('/items/'),
         apiRequest('/sendingstockrequests/')
       ]);
 
+      // Get user count based on logged-in user's role
+      let userCount = 0;
+      try {
+        const userCountResponse = await fetch(`${API_BASE_URL}/user/counts/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ user_role: userType })
+        });
+        
+        if (userCountResponse.ok) {
+          const userCountData = await userCountResponse.json();
+          userCount = userCountData.user_count;
+        }
+      } catch (error) {
+        console.error('Error fetching user count:', error);
+        // Fallback to total users if role-based count fails
+        const users = await apiRequest('/users/');
+        userCount = users.length;
+      }
+
       return {
         totalDepartments: departments.length,
-        totalUsers: users.length,
+        totalUsers: userCount,
         totalItems: items.length,
         pendingRequests: requests.filter(req => req.status === 'Pending').length
       };

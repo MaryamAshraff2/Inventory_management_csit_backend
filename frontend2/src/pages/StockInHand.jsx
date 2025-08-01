@@ -60,10 +60,14 @@ const StockInHand = () => {
       }
       
       const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
       const data = await response.json()
       setStockData(data)
     } catch (error) {
       console.error('Error fetching stock data:', error)
+      setStockData([]) // Set empty array on error
     } finally {
       setLoading(false)
     }
@@ -83,10 +87,14 @@ const StockInHand = () => {
       }
       
       const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
       const data = await response.json()
       setSummaryData(data)
     } catch (error) {
       console.error('Error fetching summary data:', error)
+      setSummaryData(null) // Set null on error
     }
   }
 
@@ -358,9 +366,25 @@ const StockInHand = () => {
                   </tbody>
                 </table>
                 
-                {stockData.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No stock data found
+                {stockData.length === 0 && !loading && (
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 mb-4">
+                      <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Stock Data Available</h3>
+                    <p className="text-gray-500 mb-4">
+                      {selectedStore 
+                        ? `No stock items found in the selected store. Try selecting a different store or check if items have been added to inventory.`
+                        : 'No stock data is currently available. This could be because no items have been added to inventory yet, or there are no stock movements recorded.'
+                      }
+                    </p>
+                    <div className="text-sm text-gray-400">
+                      <p>• Check if items have been added to the system</p>
+                      <p>• Verify that stock movements have been recorded</p>
+                      <p>• Try adjusting your filters</p>
+                    </div>
                   </div>
                 )}
               </div>

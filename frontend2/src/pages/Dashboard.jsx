@@ -113,7 +113,16 @@ const Dashboard = () => {
                   </div>
                   
                   <div className="bg-green-50 p-6 rounded-lg border border-green-100">
-                    <h3 className="text-lg font-medium text-green-800">Total Users</h3>
+                    <h3 className="text-lg font-medium text-green-800">
+                      {(() => {
+                        const userType = sessionStorage.getItem('userType');
+                        if (userType === 'superuser') return 'Superusers';
+                        if (userType === 'chairman') return 'Chairmen';
+                        if (userType === 'main_inventory_manager') return 'Main Inventory Managers';
+                        if (userType === 'inventory_manager') return 'Inventory Managers';
+                        return 'Total Users';
+                      })()}
+                    </h3>
                     <p className="text-3xl font-bold text-green-600 mt-2">{stats.totalUsers}</p>
                   </div>
                   

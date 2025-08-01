@@ -11,13 +11,13 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
     """
     ViewSet for superuser to manage departments and assign chairmen
     """
-    queryset = Department.objects.all()
+    queryset = Department.get_active_departments()
     serializer_class = DepartmentSerializer
 
     @action(detail=False, methods=['get'])
     def departments_with_chairmen(self, request):
-        """Get all departments with their assigned chairmen"""
-        departments = Department.objects.all()
+        """Get all active departments with their assigned chairmen"""
+        departments = Department.get_active_departments()
         data = []
         
         for dept in departments:
@@ -28,7 +28,7 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
                 'id': dept.id,
                 'name': dept.name,
                 'email': dept.email,
-                'user_count': dept.user_count,
+                'user_count': dept.users.count(),
                 'chairman': {
                     'id': chairman.id if chairman else None,
                     'name': chairman.name if chairman else None,
@@ -61,12 +61,12 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
         
         # Create chairman user
         chairman_name = data.get('name')
-        chairman_password = data.get('password', 'chairman123')
+        chairman_password = data.get('password')
         chairman_email = data.get('email')
         
-        if not chairman_name or not chairman_email:
+        if not chairman_name or not chairman_email or not chairman_password:
             return Response({
-                'error': 'Name and email are required for chairman'
+                'error': 'Name, email, and password are required for chairman'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Check if user with this name already exists
@@ -88,10 +88,6 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
             role='chairman',
             department=department
         )
-        
-        # Update department user count
-        department.user_count += 1
-        department.save()
         
         log_audit_action('Chairman Assigned', 'User', f"Assigned chairman '{chairman_name}' to department '{department.name}'")
         
@@ -121,12 +117,12 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
         
         # Create main inventory manager user
         manager_name = data.get('name')
-        manager_password = data.get('password', 'main123')
+        manager_password = data.get('password')
         manager_email = data.get('email')
         
-        if not manager_name or not manager_email:
+        if not manager_name or not manager_email or not manager_password:
             return Response({
-                'error': 'Name and email are required for main inventory manager'
+                'error': 'Name, email, and password are required for main inventory manager'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Check if user with this name already exists
@@ -148,10 +144,6 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
             role='main_inventory_manager',
             department=department
         )
-        
-        # Update department user count
-        department.user_count += 1
-        department.save()
         
         log_audit_action('Main Inventory Manager Assigned', 'User', f"Assigned main inventory manager '{manager_name}' to department '{department.name}'")
         

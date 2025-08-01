@@ -53,6 +53,9 @@ const LowStock = () => {
       }
       
       const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
       const data = await response.json()
       
       if (selectedCategory) {
@@ -67,6 +70,7 @@ const LowStock = () => {
       }
     } catch (error) {
       console.error('Error fetching low stock data:', error)
+      setLowStockItems([]) // Set empty array on error
     } finally {
       setLoading(false)
     }
@@ -75,10 +79,14 @@ const LowStock = () => {
   const fetchSummaryData = async () => {
     try {
       const response = await fetch('http://localhost:8000/inventory/api/low-stock/summary/')
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
       const data = await response.json()
       setSummaryData(data)
     } catch (error) {
       console.error('Error fetching summary data:', error)
+      setSummaryData(null) // Set null on error
     }
   }
 
@@ -365,8 +373,26 @@ const LowStock = () => {
                 </table>
                 
                 {filteredItems.length === 0 && !loading && (
-                  <div className="text-center py-8 text-gray-500">
-                    {lowStockItems.length === 0 ? 'No low stock items found' : 'No items match the selected filters'}
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 mb-4">
+                      <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      {lowStockItems.length === 0 ? 'No Low Stock Items Found' : 'No Items Match Selected Filters'}
+                    </h3>
+                    <p className="text-gray-500 mb-4">
+                      {lowStockItems.length === 0 
+                        ? 'Great news! All items appear to have sufficient stock levels. This could mean your inventory is well-managed or minimum thresholds haven\'t been set yet.'
+                        : 'No items match the current category and urgency filters. Try adjusting your filter settings.'
+                      }
+                    </p>
+                    <div className="text-sm text-gray-400">
+                      <p>• Check if minimum thresholds are set for items</p>
+                      <p>• Verify that stock quantities are up to date</p>
+                      <p>• Try selecting different filters</p>
+                    </div>
                   </div>
                 )}
               </div>
