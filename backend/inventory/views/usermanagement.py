@@ -10,6 +10,11 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
 
     def create(self, request, *args, **kwargs):
+        creator = request.user
+        if creator.role == "chairman":
+            allowed_roles = ["main_inventory_manager", "inventory_manager"]
+            if request.data.get("role") not in allowed_roles:
+                return Response({"detail": "invalid role assignment"}, status=status.HTTP_400_BAD_REQUEST)
         response = super().create(request, *args, **kwargs)
         # Audit log
         log_audit_action('User Created', 'User', f"Created new user '{response.data.get('name')}'")
