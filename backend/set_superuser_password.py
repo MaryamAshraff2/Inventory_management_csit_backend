@@ -24,11 +24,11 @@ def set_superuser_password():
         
         # Set password
         password = "superuser123"
-        superuser.password = password
+        superuser.set_password(password)
         superuser.save()
         
-        print(f"Password set successfully for superuser: {superuser.name}")
-        print(f"Username: {superuser.name}")
+        print(f"Password set successfully for superuser: {superuser.username}")
+        print(f"Username: {superuser.username}")
         print(f"Password: {password}")
         print(f"Email: {superuser.email}")
         

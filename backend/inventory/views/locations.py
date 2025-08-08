@@ -35,12 +35,12 @@ class LocationViewSet(viewsets.ModelViewSet):
         inventory_manager_username = f"inventory_manager_{location_name.lower().replace(' ', '_')}"
         inventory_manager_user = User.objects.create(
             username=inventory_manager_username,
-            password="inventory123",  # Default password
-            name=f"Inventory Manager - {location_name}",
             email=f"inventory_manager.{location_name.lower().replace(' ', '_')}@neduet.edu.pk",
             role="inventory_manager",
             location=location
         )
+        inventory_manager_user.set_password("inventory123")  # Use set_password for hashing
+        inventory_manager_user.save()
         
         # Assign the location to the inventory manager
         inventory_manager_user.assigned_locations.add(location)

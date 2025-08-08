@@ -56,6 +56,7 @@ const Departments = () => {
         const res = await fetch(`${API_BASE}/departments/${editingDepartment.id}/`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
+          credentials: "include", // testing
           body: JSON.stringify(newDepartment)
         });
         if (res.ok) {
@@ -67,6 +68,7 @@ const Departments = () => {
         const res = await fetch(`${API_BASE}/departments/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          crendentials: "include", // testing
           body: JSON.stringify(newDepartment)
         });
         if (res.ok) {

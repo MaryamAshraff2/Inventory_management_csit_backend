@@ -243,7 +243,7 @@ function App() {
 
           {/* Shared or user-accessible routes */}
           <Route
-            path="/discardeditems"
+            path="/discarded-items"
             element={
               <ProtectedRoute>
                 <DiscardedItems />
@@ -267,7 +267,7 @@ function App() {
             }
           />
           <Route
-            path="/stock-movements"
+            path="/stock-movement"
             element={
               <ProtectedRoute>
                 <StockMovement />

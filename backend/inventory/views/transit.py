@@ -77,7 +77,7 @@ class TransitViewSet(viewsets.ModelViewSet):
             log_audit_action(
                 'Transit Delivered', 
                 'Transit', 
-                f"Transit {transit.id} marked as delivered by {received_by_user.name}"
+                f"Transit {transit.id} marked as delivered by {received_by_user.username}"
             )
             
             # Return the updated transit data
@@ -153,7 +153,7 @@ def transit_send_api(request):
             log_audit_action(
                 'Transit Delivered', 
                 'Transit', 
-                f"Transit {transit.id} marked as delivered by {received_by_user.name}"
+                f"Transit {transit.id} marked as delivered by {received_by_user.username}"
             )
             
             # Return the response in the specified format

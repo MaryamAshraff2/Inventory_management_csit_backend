@@ -19,7 +19,7 @@ def check_current_state():
     print("📋 ALL USERS:")
     users = User.objects.all()
     for user in users:
-        print(f"  - {user.name} ({user.role}) - Department: {user.department.name if user.department else 'None'}")
+        print(f"  - {user.username} ({user.role}) - Department: {user.department.name if user.department else 'None'}")
     
     print()
     

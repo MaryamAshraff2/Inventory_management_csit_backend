@@ -33,9 +33,12 @@ class DepartmentViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
-        department = serializer.save()
-        department_name = department.name
-        
+        try:
+            self.perform_create(serializer)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        #department = serializer.save()
+        #department_name = department
         # Generate usernames (do not create users yet)
         chairman_username = f"chairman_{department_name.lower().replace(' ', '_')}"
         main_manager_username = f"main_manager_{department_name.lower().replace(' ', '_')}"
@@ -120,7 +123,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
         
         # Create chairman user
         chairman_user = User.objects.create(
-            name=chairman_username,
+            username=chairman_username,
             email=chairman_email,
             password=password,
             role='chairman',
@@ -157,7 +160,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
         
         # Create main inventory manager user
         main_manager_user = User.objects.create(
-            name=main_manager_username,
+            username=main_manager_username,
             email=main_manager_email,
             password=password,
             role='main_inventory_manager',
@@ -170,7 +173,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def check_exists(self, request):
         """Check if a department with a specific name exists"""
-        department_name = request.query_params.get('name')
+        department_name = request.query_params.get('name') 
         if not department_name:
             return Response({'error': 'Department name parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
         

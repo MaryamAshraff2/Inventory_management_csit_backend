@@ -14,13 +14,13 @@ class Command(BaseCommand):
 
         # Create superuser (no password field in database)
         superuser = User.objects.create(
-            name='superuser',  # Use 'name' field since that's what exists in database
+            username='superuser',  # Use 'name' field since that's what exists in database
             email='superuser@neduet.edu.pk',
             role='superuser'
         )
 
         self.stdout.write(
-            self.style.SUCCESS(f'Successfully created superuser: {superuser.name}')
+            self.style.SUCCESS(f'Successfully created superuser: {superuser.username}')
         )
         self.stdout.write(
             self.style.SUCCESS('Username: superuser')

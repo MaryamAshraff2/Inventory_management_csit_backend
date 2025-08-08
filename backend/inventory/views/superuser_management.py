@@ -31,13 +31,13 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
                 'user_count': dept.users.count(),
                 'chairman': {
                     'id': chairman.id if chairman else None,
-                    'name': chairman.name if chairman else None,
+                    'name': chairman.username if chairman else None,
                     'email': chairman.email if chairman else None,
                     'password': chairman.password if chairman else None,
                 } if chairman else None,
                 'main_inventory_manager': {
                     'id': main_manager.id if main_manager else None,
-                    'name': main_manager.name if main_manager else None,
+                    'name': main_manager.username if main_manager else None,
                     'email': main_manager.email if main_manager else None,
                     'password': main_manager.password if main_manager else None,
                 } if main_manager else None,
@@ -56,7 +56,7 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
         existing_chairman = User.objects.filter(department=department, role='chairman').first()
         if existing_chairman:
             return Response({
-                'error': f'Department already has a chairman: {existing_chairman.name}'
+                'error': f'Department already has a chairman: {existing_chairman.username}'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Create chairman user
@@ -70,7 +70,7 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Check if user with this name already exists
-        if User.objects.filter(name=chairman_name).exists():
+        if User.objects.filter(username=chairman_name).exists():
             return Response({
                 'error': f'User with name "{chairman_name}" already exists'
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -82,12 +82,13 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         chairman = User.objects.create(
-            name=chairman_name,
-            password=chairman_password,
+            username=chairman_name,
             email=chairman_email,
             role='chairman',
             department=department
         )
+        chairman.set_password(chairman_password)
+        chairman.save()
         
         log_audit_action('Chairman Assigned', 'User', f"Assigned chairman '{chairman_name}' to department '{department.name}'")
         
@@ -96,7 +97,7 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
             'message': f'Chairman "{chairman_name}" assigned to department "{department.name}"',
             'chairman': {
                 'id': chairman.id,
-                'name': chairman.name,
+                'name': chairman.username,
                 'email': chairman.email,
                 'password': chairman.password,
             }
@@ -112,7 +113,7 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
         existing_manager = User.objects.filter(department=department, role='main_inventory_manager').first()
         if existing_manager:
             return Response({
-                'error': f'Department already has a main inventory manager: {existing_manager.name}'
+                'error': f'Department already has a main inventory manager: {existing_manager.username}'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Create main inventory manager user
@@ -126,7 +127,7 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Check if user with this name already exists
-        if User.objects.filter(name=manager_name).exists():
+        if User.objects.filter(username=manager_name).exists():
             return Response({
                 'error': f'User with name "{manager_name}" already exists'
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -138,12 +139,13 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         manager = User.objects.create(
-            name=manager_name,
-            password=manager_password,
+            username=manager_name,
             email=manager_email,
             role='main_inventory_manager',
             department=department
         )
+        manager.set_password(manager_password)
+        manage.save()
         
         log_audit_action('Main Inventory Manager Assigned', 'User', f"Assigned main inventory manager '{manager_name}' to department '{department.name}'")
         
@@ -152,7 +154,7 @@ class SuperuserManagementViewSet(viewsets.ModelViewSet):
             'message': f'Main inventory manager "{manager_name}" assigned to department "{department.name}"',
             'manager': {
                 'id': manager.id,
-                'name': manager.name,
+                'name': manager.username,
                 'email': manager.email,
                 'password': manager.password,
             }

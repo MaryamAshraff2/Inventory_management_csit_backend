@@ -3,21 +3,22 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from ..models import User
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.hashers import check_password
 
 @csrf_exempt
 def login_api(request):
     if request.method == "POST":
         try:
             data = json.loads(request.body)
-            username = data.get("username")
+            userName = data.get("username")
             password = data.get("password")
 
-            if not username:
+            if not userName:
                 return JsonResponse({"success": False, "message": "Username required."}, status=400)
 
             try:
                 # Use 'name' field for authentication since that's what exists in the database
-                user = User.objects.get(name=username)
+                user = User.objects.get(username=userName)
             except User.DoesNotExist:
                 return JsonResponse({"success": False, "message": "Invalid username or password."}, status=401)
 
@@ -29,7 +30,7 @@ def login_api(request):
                 # All other users require password
                 if not password:
                     return JsonResponse({"success": False, "message": "Password required."}, status=400)
-                if not user.password or user.password != password:
+                if not user.password or not check_password(password, user.password):
                     return JsonResponse({"success": False, "message": "Invalid username or password."}, status=401)
 
             # Role-based access checks
@@ -54,8 +55,8 @@ def login_api(request):
                 "success": True,
                 "user": {
                     "id": user.id,
-                    "username": user.name,  # Use name as username for frontend compatibility
-                    "name": user.name,
+                    "username": user.username,  # Use name as username for frontend compatibility
+                    "name": user.username,
                     "role": user.role,
                     "department": user.department.name if user.department else None,
                 }

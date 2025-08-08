@@ -31,6 +31,11 @@ class DepartmentSerializer(serializers.ModelSerializer):
     def get_user_count(self, obj):
         """Get the count of users in this department"""
         return obj.users.count()
+    
+    def validate_name(self, value):
+        if Department.get_active_departments().filter(name=value).exists():
+            raise serializers.ValidationError("Department with this name already exists.")
+        return value
 
 class UserSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source='department.name', read_only=True)

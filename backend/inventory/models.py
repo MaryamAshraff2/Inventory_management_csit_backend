@@ -2,18 +2,17 @@ from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
 from datetime import timedelta
+from django.contrib.auth.models import AbstractUser
+from django.conf import settings
+from django.core.exceptions import ValidationError
 
-class User(models.Model):
+class User(AbstractUser):
     ROLE_CHOICES = [
         ('superuser', 'Superuser'),
         ('chairman', 'Chairman'),
         ('main_inventory_manager', 'Main Inventory Manager'),
         ('inventory_manager', 'Inventory Manager'),
     ]
-    
-    name = models.CharField(max_length=100, unique=True)
-    password = models.CharField(max_length=128, null=True, blank=True)  # Optional password for non-superusers
-    email = models.EmailField(unique=True)
     role = models.CharField(max_length=25, choices=ROLE_CHOICES)
     department = models.ForeignKey('Department', on_delete=models.CASCADE, related_name='users', null=True, blank=True)
     assigned_locations = models.ManyToManyField('Location', blank=True, related_name='assigned_users')
@@ -60,17 +59,15 @@ class Department(models.Model):
     
     def save(self, *args, **kwargs):
         """Override save to ensure name uniqueness only among active departments"""
-        # Only check for uniqueness if this is a new department (no ID yet) or if we're not marking it as deleted
         if not self.is_deleted:
-            # Check if there's already an active department with this name
             existing_active = Department.objects.filter(
-                name=self.name, 
+                name=self.name,
                 is_deleted=False
             ).exclude(id=self.id).first()
-            
+
             if existing_active:
-                raise ValueError(f'Department with name "{self.name}" already exists.')
-        
+                raise ValidationError({'name': f'Department with name "{self.name}" already exists.'})
+    
         super().save(*args, **kwargs)
     
     def delete(self, *args, **kwargs):
@@ -217,7 +214,7 @@ class StockMovement(models.Model):
     to_location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='stock_movements_to')
     quantity = models.PositiveIntegerField()
     movement_date = models.DateField(auto_now_add=True)
-    received_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_stock_movements')
+    received_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='received_stock_movements')
     notes = models.TextField(blank=True, null=True)
 
     def __str__(self):
@@ -232,7 +229,7 @@ class SendingStockRequest(models.Model):
     ]
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="stock_requests")
     quantity = models.PositiveIntegerField()
-    requested_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True)
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="Pending")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -252,7 +249,7 @@ class DiscardedItem(models.Model):
     quantity = models.PositiveIntegerField()
     date = models.DateField(auto_now_add=True)
     reason = models.CharField(max_length=20, choices=REASON_CHOICES)
-    discarded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='discarded_items')
+    discarded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='discarded_items')
     notes = models.TextField(blank=True, null=True)
     
     def __str__(self):
@@ -267,7 +264,7 @@ class Report(models.Model):
     report_type = models.CharField(max_length=50)  # e.g., "Procurement", "Stock Movement"
     filters = models.JSONField(blank=True, null=True)  # To store filter parameters as JSON 
     generated_at = models.DateTimeField(auto_now_add=True)
-    generated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    generated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     export_pdf = models.FileField(upload_to='report_exports/pdf/', blank=True, null=True)
     export_excel = models.FileField(upload_to='report_exports/excel/', blank=True, null=True)
 
@@ -346,7 +343,7 @@ class InventoryByLocation(models.Model):
 class AuditLog(models.Model):
     action = models.CharField(max_length=100)
     entity_type = models.CharField(max_length=100)
-    performed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
+    performed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
     timestamp = models.DateTimeField(auto_now_add=True)
     details = models.TextField()
 
@@ -365,7 +362,7 @@ class DiscardRequest(models.Model):
     reason = models.CharField(max_length=255)
     notes = models.TextField(blank=True, null=True)
     location = models.ForeignKey(Location, on_delete=models.CASCADE)
-    requested_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     date_requested = models.DateTimeField(auto_now_add=True)
     date_processed = models.DateTimeField(null=True, blank=True)
@@ -384,8 +381,8 @@ class Transit(models.Model):
     quantity = models.PositiveIntegerField()
     from_location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='transits_from')
     to_location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='transits_to')
-    sent_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transits_sent')
-    received_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='transits_received')
+    sent_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='transits_sent')
+    received_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='transits_received')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='in_transit')
     sent_date = models.DateTimeField(auto_now_add=True)
     received_date = models.DateTimeField(null=True, blank=True)
@@ -431,7 +428,7 @@ class ContractSchedule(models.Model):
     document = models.FileField(upload_to='contract_schedules/')
     notes = models.TextField(blank=True, null=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
-    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='uploaded_contract_schedules')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='uploaded_contract_schedules')
     
     def __str__(self):
         return f"{self.title} - {self.procurement.order_number}"
@@ -447,7 +444,7 @@ class AmendmentOrder(models.Model):
     notes = models.TextField(blank=True, null=True)
     amendment_date = models.DateField()
     uploaded_at = models.DateTimeField(auto_now_add=True)
-    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='uploaded_amendments')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='uploaded_amendments')
     
     def __str__(self):
         return f"{self.title} - {self.contract_schedule.title}"
@@ -484,7 +481,7 @@ class DeliveryNote(models.Model):
     delivery_type = models.CharField(max_length=20, choices=DELIVERY_TYPE_CHOICES)
     delivery_date = models.DateField()
     document = models.FileField(upload_to='delivery_notes/')
-    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='uploaded_delivery_notes')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='uploaded_delivery_notes')
     uploaded_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, null=True)
     
@@ -516,8 +513,8 @@ class ReceivingNote(models.Model):
     delivery_note = models.ForeignKey(DeliveryNote, on_delete=models.CASCADE, related_name='receiving_notes')
     receiving_type = models.CharField(max_length=20, choices=RECEIVING_TYPE_CHOICES)
     receiving_date = models.DateField()
-    received_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_items')
-    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='uploaded_receiving_notes')
+    received_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='received_items')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='uploaded_receiving_notes')
     uploaded_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, null=True)
     
