@@ -1,20 +1,14 @@
 import { useState, useEffect } from 'react';
 import { FiX } from 'react-icons/fi';
 
-const AddUserForm = ({ user, onClose, onSubmit, departments = [], role }) => {
+const AddUserForm = ({ user, onClose, onSubmit, locations = [], role }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     role: role || 'User',
-    department: ''
+    location: '',
+    password: ''
   });
-
-  useEffect(() => {
-    // Set default department when departments are available
-    if (departments.length > 0 && !user) {
-      setFormData(prev => ({ ...prev, department: departments[0].id }));
-    }
-  }, [departments, user]);
 
   useEffect(() => {
     if (user) {
@@ -22,7 +16,8 @@ const AddUserForm = ({ user, onClose, onSubmit, departments = [], role }) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        department: user.department?.id || user.department
+        location: user.location?.id || user.location || '',
+        password: ''
       });
     } else if (role) {
       setFormData(prev => ({ ...prev, role }));
@@ -39,7 +34,6 @@ const AddUserForm = ({ user, onClose, onSubmit, departments = [], role }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Pass form data to parent component instead of making API calls here
     if (onSubmit) {
       onSubmit(formData);
     }
@@ -59,6 +53,7 @@ const AddUserForm = ({ user, onClose, onSubmit, departments = [], role }) => {
 
         <form onSubmit={handleSubmit} className="px-6 py-4">
           <div className="space-y-4">
+            {/* Name */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                 Username
@@ -75,6 +70,7 @@ const AddUserForm = ({ user, onClose, onSubmit, departments = [], role }) => {
               />
             </div>
 
+            {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email
@@ -91,47 +87,59 @@ const AddUserForm = ({ user, onClose, onSubmit, departments = [], role }) => {
               />
             </div>
 
+            {/* Password */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <input
+                type="password"
+                name="password"
+                id="password"
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Enter password"
+                value={formData.password}
+                onChange={handleChange}
+                required={!user}
+              />
+            </div>
+
+            {/* Role */}
             <div>
               <label htmlFor="role" className="block text-sm font-medium text-gray-700">
                 Role
               </label>
-              {role ? (
-                <input
-                  type="text"
-                  name="role"
-                  id="role"
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-100 text-gray-700 sm:text-sm"
-                  value={formData.role}
-                  readOnly
-                />
-              ) : (
-                <select
-                  name="role"
-                  id="role"
-                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                  value={formData.role}
-                  onChange={handleChange}
-                >
-                  <option value="User">User</option>
-                  <option value="Admin">Admin</option>
-                </select>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="department" className="block text-sm font-medium text-gray-700">
-                Department
-              </label>
               <select
-                name="department"
-                id="department"
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                value={formData.department}
+                name="role"
+                id="role"
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300
+                          focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                value={formData.role}
                 onChange={handleChange}
                 required
               >
-                {departments.map(dept => (
-                  <option key={dept.id} value={dept.id}>{dept.name}</option>
+                <option value="">Select Role</option>
+                <option value="main_inventory_manager">Main Inventory Manager</option>
+                <option value="inventory_manager">Inventory Manager</option>
+              </select>
+            </div>
+
+            {/* Location */}
+            <div>
+              <label htmlFor="location" className="block text-sm font-medium text-gray-700">
+                Location
+              </label>
+              <select
+                name="location"
+                id="location"
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300
+                          focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                value={formData.location || ''}
+                onChange={handleChange}
+              >
+                <option value="">Select Location</option>
+                {locations.map(loc => (
+                  <option key={loc.id} value={loc.id}>{loc.name}</option>
                 ))}
               </select>
             </div>

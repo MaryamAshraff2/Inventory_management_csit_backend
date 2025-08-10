@@ -10,6 +10,7 @@ const API_BASE = 'http://localhost:8000/inventory';
 const Users = () => {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -37,9 +38,17 @@ const Users = () => {
       .catch(() => setDepartments([]));
   };
 
+  // Fetch locations from backend
+  const fetchLocations = () => {
+  axios.get(`${API_BASE}/locations/dropdown`)
+    .then(res => setLocations(res.data))
+    .catch(() => setLocations([]));
+};
+
   useEffect(() => {
     fetchUsers();
     fetchDepartments();
+    fetchLocations();
   }, []);
 
   const handleDelete = (id) => {
@@ -244,6 +253,7 @@ const Users = () => {
               <AddUserForm
                 user={editingUser}
                 departments={departments}
+                locations={locations}
                 role={editingUser ? editingUser.role : userType}
                 onClose={() => {
                   setShowForm(false);

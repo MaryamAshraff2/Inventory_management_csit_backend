@@ -18,20 +18,30 @@ from ..serializers import LocationSerializer
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q
+from rest_framework.permissions import IsAuthenticated
 from ..utils import log_audit_action
 
 class LocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return Location.objects.none()
+        user_department = self.request.user.department
+        return Location.objects.filter(department=user_department)
+
 
     def create(self, request, *args, **kwargs):
-        response = super().create(request, *args, **kwargs)
-        location = self.get_object()
-        
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        location = serializer.instance  # ✅ The saved Location object
+
         # Auto-create inventory manager for this location
         location_name = location.name
-        
-        # Create inventory manager user
         inventory_manager_username = f"inventory_manager_{location_name.lower().replace(' ', '_')}"
         inventory_manager_user = User.objects.create(
             username=inventory_manager_username,
@@ -39,14 +49,19 @@ class LocationViewSet(viewsets.ModelViewSet):
             role="inventory_manager",
             location=location
         )
-        inventory_manager_user.set_password("inventory123")  # Use set_password for hashing
+        inventory_manager_user.set_password("inventory123")
         inventory_manager_user.save()
-        
-        # Assign the location to the inventory manager
         inventory_manager_user.assigned_locations.add(location)
-        
-        log_audit_action('Location Created', 'Location', f"Created location '{location_name}' with auto-created inventory manager")
-        return response
+
+        log_audit_action(
+            'Location Created',
+            'Location',
+            f"Created location '{location_name}' with auto-created inventory manager"
+        )
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=201, headers=headers)
+
 
     def update(self, request, *args, **kwargs):
         response = super().update(request, *args, **kwargs)
@@ -97,3 +112,14 @@ class LocationViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         except Exception as e:
             return Response({'error': str(e)}, status=500)
+            
+    @action(detail=False, methods=['get'])
+    def dropdown(self, request):
+        """
+        Returns minimal location data for the logged-in user's department
+        for use in dropdown menus.
+        """
+        user_department = request.user.department
+        locations = Location.objects.filter(department=user_department).only("id", "name")
+        serializer = LocationSerializer(locations, many=True)
+        return Response(serializer.data)

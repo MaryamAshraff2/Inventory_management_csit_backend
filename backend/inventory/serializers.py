@@ -39,12 +39,11 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source='department.name', read_only=True)
-    department = serializers.PrimaryKeyRelatedField(
-        queryset=Department.objects.all(), write_only=False, required=False, allow_null=True
-    )
+    department = serializers.PrimaryKeyRelatedField(read_only=True)
     location = serializers.PrimaryKeyRelatedField(
         queryset=Location.objects.all(), required=False, allow_null=True
     )
+    role = serializers.ChoiceField(choices=User.ROLE_CHOICES)
 
     class Meta:
         model = User
@@ -52,6 +51,20 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'password': {'write_only': True, 'required': False}
         }
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            validated_data['department'] = request.user.department
+
+        password = validated_data.pop('password', None)
+        user = super().create(validated_data)
+
+        if password:
+            user.set_password(password)
+            user.save()
+
+        return user
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
