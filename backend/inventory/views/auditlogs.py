@@ -182,7 +182,7 @@ class AuditLogExportPDFView(views.APIView):
                     Paragraph(str(log.id), styles['Normal']),
                     Paragraph(log.action, styles['Normal']),
                     Paragraph(log.entity_type, styles['Normal']),
-                    Paragraph(log.performed_by.name if log.performed_by else '', styles['Normal']),
+                    Paragraph(self._get_user_name(log.performed_by), styles['Normal']),
                     Paragraph(log.timestamp.strftime('%Y-%m-%d %H:%M:%S'), styles['Normal']),
                     Paragraph(log.details, styles['Normal']) if log.details else Paragraph('', styles['Normal'])
                 ]
@@ -213,6 +213,19 @@ class AuditLogExportPDFView(views.APIView):
         response_pdf = HttpResponse(buffer, content_type='application/pdf')
         response_pdf['Content-Disposition'] = 'attachment; filename="audit_logs.pdf"'
         return response_pdf
+
+    def _get_user_name(self, user):
+        """Get the display name of a user"""
+        if not user:
+            return ''
+        if user.first_name and user.last_name:
+            return f"{user.first_name} {user.last_name}"
+        elif user.first_name:
+            return user.first_name
+        elif user.last_name:
+            return user.last_name
+        else:
+            return user.username
 
 class AuditLogExportExcelView(views.APIView):
     def get(self, request):
@@ -269,7 +282,7 @@ class AuditLogExportExcelView(views.APIView):
                 log.id,
                 log.action,
                 log.entity_type,
-                log.performed_by.name if log.performed_by else '',
+                self._get_user_name(log.performed_by),
                 log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
                 log.details
             ]
@@ -296,4 +309,17 @@ class AuditLogExportExcelView(views.APIView):
         buffer.seek(0)
         response = HttpResponse(buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = 'attachment; filename="audit_logs.xlsx"'
-        return response 
+        return response
+
+    def _get_user_name(self, user):
+        """Get the display name of a user"""
+        if not user:
+            return ''
+        if user.first_name and user.last_name:
+            return f"{user.first_name} {user.last_name}"
+        elif user.first_name:
+            return user.first_name
+        elif user.last_name:
+            return user.last_name
+        else:
+            return user.username 

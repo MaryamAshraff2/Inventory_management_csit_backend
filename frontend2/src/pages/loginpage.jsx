@@ -49,6 +49,7 @@ const LoginPage = () => {
         sessionStorage.setItem('userId', data.user.id);
         sessionStorage.setItem('userName', data.user.name);
         sessionStorage.setItem('userDepartment', data.user.department);
+        sessionStorage.setItem('authToken', data.token); // Store the authentication token
         
         // Navigate based on user role returned from backend
         switch (data.user.role) {

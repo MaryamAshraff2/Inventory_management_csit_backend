@@ -1,6 +1,20 @@
 import axios from "axios";
 const API_BASE_URL = 'http://localhost:8000/inventory';
 
+// Attach token to all axios requests
+axios.interceptors.request.use((config) => {
+  try {
+    const token = sessionStorage.getItem('authToken');
+    if (token) {
+      config.headers = config.headers || {};
+      if (!config.headers['Authorization'] && !config.headers['authorization']) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+  } catch (_) {}
+  return config;
+});
+
 // Helper function to handle API responses
 const handleResponse = async (response) => {
   if (!response.ok) {
@@ -13,9 +27,14 @@ const handleResponse = async (response) => {
 // Generic API request function
 const apiRequest = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
+  
+  // Get the auth token
+  const token = sessionStorage.getItem('authToken');
+  
   const config = {
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
       ...options.headers,
     },
     ...options,
@@ -389,4 +408,31 @@ export const discardRequestsAPI = {
     method: 'POST',
     body: JSON.stringify({ action }),
   }),
+}; 
+
+// Logout function
+export const logout = async () => {
+  try {
+    const token = sessionStorage.getItem('authToken');
+    if (token) {
+      await fetch(`${API_BASE_URL}/logout/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+    }
+    
+    // Clear session storage
+    sessionStorage.clear();
+    
+    // Redirect to login page
+    window.location.href = '/';
+  } catch (error) {
+    console.error('Logout failed:', error);
+    // Still clear session storage and redirect even if API call fails
+    sessionStorage.clear();
+    window.location.href = '/';
+  }
 }; 

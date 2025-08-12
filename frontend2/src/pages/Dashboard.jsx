@@ -2,7 +2,7 @@ import Sidebar from '../components/Sidebar'
 import Navbar from '../components/Navbar'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { dashboardAPI } from '../services/api'
+import { dashboardAPI, logout } from '../services/api'
 
 const Dashboard = () => {
   const navigate = useNavigate()
@@ -45,11 +45,9 @@ const Dashboard = () => {
   }, [])
 
   // Handle logout
-  const handleLogout = () => {
-    sessionStorage.removeItem('isLoggedIn')
-    sessionStorage.removeItem('userType')
-    navigate('/loginpage')
-  }
+  const handleLogout = async () => {
+    await logout();
+  };
 
   // Format date for display
   const formatDate = (dateString) => {

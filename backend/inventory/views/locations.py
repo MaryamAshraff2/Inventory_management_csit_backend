@@ -28,10 +28,36 @@ class LocationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        print(f"DEBUG: User: {user}, Authenticated: {user.is_authenticated}, Role: {getattr(user, 'role', 'N/A')}")
+        
         if not user.is_authenticated:
+            print("DEBUG: User not authenticated, returning empty queryset")
             return Location.objects.none()
-        user_department = self.request.user.department
-        return Location.objects.filter(department=user_department)
+        
+        # Superuser can see all locations
+        if user.role == 'superuser':
+            print("DEBUG: Superuser detected, returning all locations")
+            return Location.objects.all()
+        
+        # Chairman can see all locations
+        if user.role == 'chairman':
+            print("DEBUG: Chairman detected, returning all locations")
+            return Location.objects.all()
+        
+        # Main inventory manager can see all locations
+        if user.role == 'main_inventory_manager':
+            print("DEBUG: Main inventory manager detected, returning all locations")
+            return Location.objects.all()
+        
+        # Regular users see locations based on their department
+        user_department = user.department
+        print(f"DEBUG: Regular user, department: {user_department}")
+        if user_department:
+            return Location.objects.filter(department=user_department)
+        
+        # If user has no department, return empty queryset
+        print("DEBUG: User has no department, returning empty queryset")
+        return Location.objects.none()
 
 
     def create(self, request, *args, **kwargs):

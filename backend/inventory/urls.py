@@ -3,7 +3,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from .views.usermanagement import UserViewSet
-from .views.login import login_api
+from .views.login import login_api, logout_api
 from .views.departments import DepartmentViewSet
 from .views.superuser_management import SuperuserManagementViewSet
 from .views.categories import CategoryViewSet
@@ -49,6 +49,7 @@ router.register(r'receiving-notes', ReceivingNoteViewSet)
 
 urlpatterns = [
     path('login/', login_api, name='login'),
+    path('logout/', logout_api, name='logout'),
     path('', include(router.urls)),
     path('api/item-availability/', get_item_availability, name='item-availability'),
     path('audit-logs/', AuditLogListView.as_view(), name='audit-log-list'),

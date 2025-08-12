@@ -40,6 +40,19 @@ class TransitViewSet(viewsets.ModelViewSet):
         
         return queryset.order_by('-sent_date')
 
+    def _get_user_name(self, user):
+        """Helper method to get the display name of a user"""
+        if not user:
+            return 'Unknown'
+        if user.first_name and user.last_name:
+            return f"{user.first_name} {user.last_name}"
+        elif user.first_name:
+            return user.first_name
+        elif user.last_name:
+            return user.last_name
+        else:
+            return user.username
+
     @action(detail=True, methods=['post'])
     def send(self, request, pk=None):
         """Mark transit as delivered"""
@@ -176,11 +189,11 @@ def transit_send_api(request):
                     },
                     'sent_by': {
                         'id': transit.sent_by.id,
-                        'name': transit.sent_by.name
+                        'name': self._get_user_name(transit.sent_by)
                     },
                     'received_by': {
                         'id': transit.received_by.id,
-                        'name': transit.received_by.name
+                        'name': self._get_user_name(transit.received_by)
                     },
                     'status': transit.status,
                     'sent_date': transit.sent_date.isoformat(),

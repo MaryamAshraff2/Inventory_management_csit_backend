@@ -3,6 +3,7 @@ import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import LocationTable from "../components/LocationTable";
 import LocationForm from "../components/AddLocationForm";
+import { logout } from "../services/api";
 
 const API_BASE = 'http://localhost:8000/inventory'; // Adjust if your backend is served elsewhere
 
@@ -17,20 +18,48 @@ const Locations = () => {
   const [editingLocation, setEditingLocation] = useState(null);
   const [departments, setDepartments] = useState([]);
 
+  // Handle logout
+  const handleLogout = async () => {
+    await logout();
+  };
+
   // Fetch locations and departments from backend
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        
+        // Debug: Log token
+        const token = sessionStorage.getItem('authToken');
+        console.log('Auth token:', token);
+        
         const [locRes, deptRes] = await Promise.all([
-          fetch(`${API_BASE}/locations/`),
-          fetch(`${API_BASE}/departments/`)
+          fetch(`${API_BASE}/locations/`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }),
+          fetch(`${API_BASE}/departments/`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
         ]);
+        
+        console.log('Locations response status:', locRes.status);
+        console.log('Departments response status:', deptRes.status);
+        console.log('Response headers:', Object.fromEntries(locRes.headers.entries()));
+        
         const locData = await locRes.json();
         const deptData = await deptRes.json();
+        
+        console.log('Locations data:', locData);
+        console.log('Departments data:', deptData);
+        
         setLocations(locData);
         setDepartments(deptData);
       } catch (e) {
+        console.error('Error fetching data:', e);
         setLocations([]);
         setDepartments([]);
       } finally {
@@ -67,11 +96,16 @@ const Locations = () => {
   const handleAddLocation = async (newLocation) => {
     try {
       setLoading(true);
+      const token = sessionStorage.getItem('authToken');
+      
       if (editingLocation) {
         // Update existing location
         const res = await fetch(`${API_BASE}/locations/${editingLocation.id}/`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
           body: JSON.stringify(newLocation)
         });
         if (res.ok) {
@@ -82,7 +116,10 @@ const Locations = () => {
         // Add new location
         const res = await fetch(`${API_BASE}/locations/`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
           body: JSON.stringify(newLocation)
         });
         if (res.ok) {
@@ -107,7 +144,13 @@ const Locations = () => {
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this location?")) {
       setLoading(true);
-      await fetch(`${API_BASE}/locations/${id}/`, { method: "DELETE" });
+      const token = sessionStorage.getItem('authToken');
+      await fetch(`${API_BASE}/locations/${id}/`, { 
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
       setLocations(locations.filter((loc) => loc.id !== id));
       setLoading(false);
     }
@@ -117,7 +160,7 @@ const Locations = () => {
     <>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar title="Location Management" />
+        <Navbar title="Location Management" onLogout={handleLogout} />
         <main className="flex-1 overflow-y-auto p-6">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-6">

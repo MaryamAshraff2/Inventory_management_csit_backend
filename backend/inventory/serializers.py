@@ -44,13 +44,25 @@ class UserSerializer(serializers.ModelSerializer):
         queryset=Location.objects.all(), required=False, allow_null=True
     )
     role = serializers.ChoiceField(choices=User.ROLE_CHOICES)
+    full_name = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'name', 'email', 'password', 'role', 'department', 'department_name', 'location']
+        fields = ['id', 'username', 'first_name', 'last_name', 'full_name', 'email', 'password', 'role', 'department', 'department_name', 'location']
         extra_kwargs = {
             'password': {'write_only': True, 'required': False}
         }
+    
+    def get_full_name(self, obj):
+        """Get the full name of the user"""
+        if obj.first_name and obj.last_name:
+            return f"{obj.first_name} {obj.last_name}"
+        elif obj.first_name:
+            return obj.first_name
+        elif obj.last_name:
+            return obj.last_name
+        else:
+            return obj.username
 
     def create(self, validated_data):
         request = self.context.get('request')
@@ -228,7 +240,7 @@ class StockMovementSerializer(serializers.ModelSerializer):
     item_name = serializers.CharField(source='item.name', read_only=True)
     from_location_name = serializers.CharField(source='from_location.name', read_only=True)
     to_location_name = serializers.CharField(source='to_location.name', read_only=True)
-    received_by_name = serializers.CharField(source='received_by.name', read_only=True)
+    received_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = StockMovement
@@ -295,6 +307,19 @@ class StockMovementSerializer(serializers.ModelSerializer):
             item.save(update_fields=["last_stock_movement"])
 
             return stock_movement
+
+    def get_received_by_name(self, obj):
+        """Get the name of the user who received the stock movement"""
+        if obj.received_by:
+            if obj.received_by.first_name and obj.received_by.last_name:
+                return f"{obj.received_by.first_name} {obj.received_by.last_name}"
+            elif obj.received_by.first_name:
+                return obj.received_by.first_name
+            elif obj.received_by.last_name:
+                return obj.received_by.last_name
+            else:
+                return obj.received_by.username
+        return "Unknown"
 
 class SendingStockRequestSerializer(serializers.ModelSerializer):
     item = ItemSerializer(read_only=True)
@@ -399,7 +424,7 @@ class DiscardRequestSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'status', 'date_requested', 'date_processed', 'item', 'location', 'requested_by']
 
 class ReportSerializer(serializers.ModelSerializer):
-    generated_by_name = serializers.CharField(source='generated_by.name', read_only=True)
+    generated_by_name = serializers.SerializerMethodField()
     generated_by = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), 
         source='generated_by', 
@@ -415,6 +440,19 @@ class ReportSerializer(serializers.ModelSerializer):
             'generated_by', 'generated_by_name', 'export_pdf', 'export_excel'
         ]
         read_only_fields = ['id', 'generated_at', 'export_pdf', 'export_excel']
+
+    def get_generated_by_name(self, obj):
+        """Get the name of the user who generated the report"""
+        if obj.generated_by:
+            if obj.generated_by.first_name and obj.generated_by.last_name:
+                return f"{obj.generated_by.first_name} {obj.generated_by.last_name}"
+            elif obj.generated_by.first_name:
+                return obj.generated_by.first_name
+            elif obj.generated_by.last_name:
+                return obj.generated_by.last_name
+            else:
+                return obj.generated_by.username
+        return "Unknown"
 
 class TotalInventoryRowSerializer(serializers.Serializer):
     id = serializers.IntegerField()
@@ -433,13 +471,24 @@ class TotalInventoryRowSerializer(serializers.Serializer):
     def get_last_stock_movement(self, obj):
         if hasattr(obj, 'last_stock_movement') and obj.last_stock_movement:
             m = obj.last_stock_movement
+            received_by_name = "Unknown"
+            if m.received_by:
+                if m.received_by.first_name and m.received_by.last_name:
+                    received_by_name = f"{m.received_by.first_name} {m.received_by.last_name}"
+                elif m.received_by.first_name:
+                    received_by_name = m.received_by.first_name
+                elif m.received_by.last_name:
+                    received_by_name = m.received_by.last_name
+                else:
+                    received_by_name = m.received_by.username
+            
             return {
                 'id': m.id,
                 'from_location': m.from_location.name,
                 'to_location': m.to_location.name,
                 'quantity': m.quantity,
                 'movement_date': m.movement_date,
-                'received_by': m.received_by.name,
+                'received_by': received_by_name,
                 'notes': m.notes,
             }
         return None
@@ -469,8 +518,8 @@ class TransitSerializer(serializers.ModelSerializer):
     item_name = serializers.CharField(source='item.name', read_only=True)
     from_location_name = serializers.CharField(source='from_location.name', read_only=True)
     to_location_name = serializers.CharField(source='to_location.name', read_only=True)
-    sent_by_name = serializers.CharField(source='sent_by.name', read_only=True)
-    received_by_name = serializers.CharField(source='received_by.name', read_only=True)
+    sent_by_name = serializers.SerializerMethodField()
+    received_by_name = serializers.SerializerMethodField()
     
     class Meta:
         model = Transit
@@ -506,6 +555,32 @@ class TransitSerializer(serializers.ModelSerializer):
             )
             
             return transit
+
+    def get_sent_by_name(self, obj):
+        """Get the name of the user who sent the transit"""
+        if obj.sent_by:
+            if obj.sent_by.first_name and obj.sent_by.last_name:
+                return f"{obj.sent_by.first_name} {obj.sent_by.last_name}"
+            elif obj.sent_by.first_name:
+                return obj.sent_by.first_name
+            elif obj.sent_by.last_name:
+                return obj.sent_by.last_name
+            else:
+                return obj.sent_by.username
+        return "Unknown"
+
+    def get_received_by_name(self, obj):
+        """Get the name of the user who received the transit"""
+        if obj.received_by:
+            if obj.received_by.first_name and obj.received_by.last_name:
+                return f"{obj.received_by.first_name} {obj.received_by.last_name}"
+            elif obj.received_by.first_name:
+                return obj.received_by.first_name
+            elif obj.received_by.last_name:
+                return obj.received_by.last_name
+            else:
+                return obj.received_by.username
+        return "Unknown"
 
 class TransitSendSerializer(serializers.Serializer):
     """Serializer for marking transit as delivered"""

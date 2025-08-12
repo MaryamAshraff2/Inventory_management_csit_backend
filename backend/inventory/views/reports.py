@@ -62,6 +62,19 @@ class ReportViewSet(viewsets.ModelViewSet):
             pass
         return None
 
+    def _get_user_name(self, user):
+        """Helper method to get the display name of a user"""
+        if not user:
+            return 'Unknown'
+        if user.first_name and user.last_name:
+            return f"{user.first_name} {user.last_name}"
+        elif user.first_name:
+            return user.first_name
+        elif user.last_name:
+            return user.last_name
+        else:
+            return user.username
+
     def _generate_pdf_content(self, report_data, report_type):
         """Generate professional PDF content based on report type and data"""
         # Special handling for Register report
@@ -768,7 +781,7 @@ class ReportViewSet(viewsets.ModelViewSet):
                     'from_location': movement.from_location.name,
                     'to_location': movement.to_location.name,
                     'movement_date': movement.movement_date,
-                    'received_by': movement.received_by.name,
+                    'received_by': self._get_user_name(movement.received_by),
                     'notes': movement.notes
                 })
             
@@ -991,7 +1004,7 @@ class ReportViewSet(viewsets.ModelViewSet):
                     'quantity': discarded_item.quantity,
                     'date': discarded_item.date,
                     'reason': discarded_item.reason,
-                    'discarded_by': discarded_item.discarded_by.name if discarded_item.discarded_by else 'Unknown',
+                    'discarded_by': self._get_user_name(discarded_item.discarded_by),
                 })
             
             return Response(report_data, status=status.HTTP_200_OK)
@@ -1328,7 +1341,7 @@ class ReportViewSet(viewsets.ModelViewSet):
                         'from_location': movement.from_location.name,
                         'to_location': movement.to_location.name,
                         'movement_date': movement.movement_date,
-                        'received_by': movement.received_by.name,
+                        'received_by': self._get_user_name(movement.received_by),
                         'notes': movement.notes
                     })
             
@@ -1444,7 +1457,7 @@ class ReportViewSet(viewsets.ModelViewSet):
                         'quantity': discarded_item.quantity,
                         'date': discarded_item.date,
                         'reason': discarded_item.reason,
-                        'discarded_by': discarded_item.discarded_by.name if discarded_item.discarded_by else 'Unknown',
+                        'discarded_by': self._get_user_name(discarded_item.discarded_by),
                     })
             
             elif report.report_type == 'categories':
@@ -1821,7 +1834,7 @@ class ReportViewSet(viewsets.ModelViewSet):
                         'from_location': movement.from_location.name,
                         'to_location': movement.to_location.name,
                         'movement_date': movement.movement_date,
-                        'received_by': movement.received_by.name,
+                        'received_by': self._get_user_name(movement.received_by),
                         'notes': movement.notes
                     })
             
@@ -1931,7 +1944,7 @@ class ReportViewSet(viewsets.ModelViewSet):
                         'quantity': discarded_item.quantity,
                         'date': discarded_item.date,
                         'reason': discarded_item.reason,
-                        'discarded_by': discarded_item.discarded_by.name if discarded_item.discarded_by else 'Unknown',
+                        'discarded_by': self._get_user_name(discarded_item.discarded_by),
                     })
             
             elif report.report_type == 'categories':

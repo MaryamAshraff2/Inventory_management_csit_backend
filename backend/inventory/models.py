@@ -19,7 +19,15 @@ class User(AbstractUser):
     location = models.ForeignKey('Location', on_delete=models.SET_NULL, null=True, blank=True, related_name='users_at_location')
 
     def __str__(self):
-        return f"{self.name} ({self.role})"
+        if self.first_name and self.last_name:
+            name = f"{self.first_name} {self.last_name}"
+        elif self.first_name:
+            name = self.first_name
+        elif self.last_name:
+            name = self.last_name
+        else:
+            name = self.username
+        return f"{name} ({self.role})"
     
     def can_access_main_inventory(self):
         """Check if user can access main inventory"""
@@ -218,7 +226,8 @@ class StockMovement(models.Model):
     notes = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f"{self.quantity} x {self.item.name} from {self.from_location.name} to {self.to_location.name} on {self.movement_date} (Received by: {self.received_by.name})" 
+        received_by_name = self.received_by.get_full_name() if self.received_by else "Unknown"
+        return f"{self.quantity} x {self.item.name} from {self.from_location.name} to {self.to_location.name} on {self.movement_date} (Received by: {received_by_name})" 
 
 
 class SendingStockRequest(models.Model):
@@ -368,7 +377,8 @@ class DiscardRequest(models.Model):
     date_processed = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.quantity} x {self.item.name} requested for discard at {self.location.name} by {self.requested_by.name} ({self.status})"
+        requested_by_name = self.requested_by.get_full_name() if self.requested_by else "Unknown"
+        return f"{self.quantity} x {self.item.name} requested for discard at {self.location.name} by {requested_by_name} ({self.status})"
 
 class Transit(models.Model):
     STATUS_CHOICES = [

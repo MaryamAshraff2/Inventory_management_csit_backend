@@ -4,6 +4,11 @@ import json
 from ..models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import check_password
+import uuid
+from datetime import datetime, timedelta
+
+# Simple in-memory token storage (in production, use Redis or database)
+TOKEN_STORE = {}
 
 @csrf_exempt
 def login_api(request):
@@ -50,16 +55,46 @@ def login_api(request):
                 if not user.assigned_locations.exists():
                     return JsonResponse({"success": False, "message": "Inventory manager account not yet assigned to a location."}, status=403)
 
-            # Success: return user info and role
+            # Generate a simple token
+            token = str(uuid.uuid4())
+            TOKEN_STORE[token] = {
+                'user_id': user.id,
+                'user_role': user.role,
+                'user_department': user.department.id if user.department else None,
+                'expires_at': datetime.now() + timedelta(hours=24)
+            }
+            
+            print(f"DEBUG: Login successful for user {user.username}")
+            print(f"DEBUG: Token generated: {token}")
+            print(f"DEBUG: Token store: {TOKEN_STORE}")
+
+            # Success: return user info and role with token
             return JsonResponse({
                 "success": True,
+                "token": token,
                 "user": {
                     "id": user.id,
-                    "username": user.username,  # Use name as username for frontend compatibility
+                    "username": user.username,
                     "name": user.username,
                     "role": user.role,
                     "department": user.department.name if user.department else None,
                 }
             })
+        except Exception as e:
+            return JsonResponse({"success": False, "message": str(e)}, status=500)
+
+@csrf_exempt
+def logout_api(request):
+    if request.method == "POST":
+        try:
+            # Get token from request headers
+            auth_header = request.headers.get('Authorization', '')
+            if auth_header.startswith('Bearer '):
+                token = auth_header[7:]  # Remove 'Bearer ' prefix
+                if token in TOKEN_STORE:
+                    del TOKEN_STORE[token]
+                    print(f"DEBUG: Token {token} removed from store")
+            
+            return JsonResponse({"success": True, "message": "Logged out successfully"})
         except Exception as e:
             return JsonResponse({"success": False, "message": str(e)}, status=500)
